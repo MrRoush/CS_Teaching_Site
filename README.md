@@ -2,6 +2,25 @@
 
 A web application for organizing computer science lessons and collecting student submissions. Features a playlist-based learning system with progress tracking and file upload capabilities.
 
+## 🚀 Deployment
+
+**Important**: This is a Flask web application and **cannot be hosted on GitHub Pages** (which only supports static HTML/CSS/JS). 
+
+### Quick Deploy Options:
+
+#### Option 1: One-Click Deploy to Render (Recommended)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+See [DEPLOY_TO_RENDER.md](DEPLOY_TO_RENDER.md) for details.
+
+#### Option 2: Other Free Hosting
+- **PythonAnywhere** - Easy Python hosting
+- **Railway.app** - Auto-deploy from GitHub
+- **Fly.io** - CLI-based deployment
+- **Docker** - Use included Dockerfile
+
+[📖 Read Full Deployment Guide →](DEPLOYMENT.md)
+
 ## Features
 
 - 📚 **Course Management**: Organize lessons into courses

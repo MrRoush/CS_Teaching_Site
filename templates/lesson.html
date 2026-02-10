@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ lesson.title }} - CS Teaching Site{% endblock %}
+
+{% block content %}
+<div class="lesson-header">
+    <a href="{{ url_for('course_view', course_id=course.id) }}" class="back-link">&larr; Back to {{ course.name }}</a>
+    <h2>{{ lesson.title }}</h2>
+    <p>{{ lesson.description }}</p>
+    {% if completed %}
+        <span class="status-badge completed">✓ Completed</span>
+    {% endif %}
+</div>
+
+{% if not student_name %}
+<div class="alert alert-warning">
+    <strong>Please enter your name</strong> at the top to track your progress and submit assignments.
+</div>
+{% endif %}
+
+<div class="lesson-content">
+    <div class="video-section">
+        <h3>Tutorial Video</h3>
+        <div class="video-container">
+            <iframe 
+                id="lesson-video"
+                src="{{ lesson.video_url }}" 
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+            </iframe>
+        </div>
+        {% if student_name and not completed %}
+        <div class="video-actions">
+            <button id="mark-complete-btn" class="btn btn-success">Mark as Complete</button>
+            <span id="complete-message" class="success-message" style="display: none;">Lesson marked as complete!</span>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="submission-section">
+        <h3>Submit Your Work</h3>
+        {% if submission %}
+        <div class="alert alert-success">
+            <strong>File Submitted!</strong><br>
+            Filename: {{ submission.filename }}<br>
+            Submitted: {{ submission.submitted_at }}
+        </div>
+        {% endif %}
+        
+        {% if student_name %}
+        <form method="POST" action="{{ url_for('upload_file', lesson_id=lesson.id) }}" enctype="multipart/form-data" class="upload-form">
+            <div class="form-group">
+                <label for="file">Upload your Blender file (.blend):</label>
+                <input type="file" id="file" name="file" accept=".blend" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Submit File</button>
+        </form>
+        {% else %}
+        <div class="alert alert-info">
+            Please enter your name at the top to submit your work.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const markCompleteBtn = document.getElementById('mark-complete-btn');
+    const completeMessage = document.getElementById('complete-message');
+    
+    if (markCompleteBtn) {
+        markCompleteBtn.addEventListener('click', function() {
+            fetch('{{ url_for("mark_complete", lesson_id=lesson.id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    markCompleteBtn.style.display = 'none';
+                    completeMessage.style.display = 'inline';
+                    // Reload page after 1 second to show updated status
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error marking lesson as complete');
+                console.error('Error:', error);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

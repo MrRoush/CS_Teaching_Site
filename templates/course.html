@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.name }} - CS Teaching Site{% endblock %}
+
+{% block content %}
+<div class="course-header">
+    <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Courses</a>
+    <h2>{{ course.name }}</h2>
+    <p>{{ course.description }}</p>
+</div>
+
+{% if not student_name %}
+<div class="alert alert-info">
+    <strong>Please enter your name</strong> at the top to track your progress and submit assignments.
+</div>
+{% endif %}
+
+<div class="lessons-section">
+    <h3>Course Playlist</h3>
+    {% if lessons %}
+        <div class="lessons-list">
+            {% for lesson in lessons %}
+            <div class="lesson-item {% if progress.get(lesson.id) %}completed{% endif %}">
+                <div class="lesson-info">
+                    <div class="lesson-number">{{ lesson.order_num }}</div>
+                    <div class="lesson-details">
+                        <h4>{{ lesson.title }}</h4>
+                        <p>{{ lesson.description }}</p>
+                    </div>
+                </div>
+                <div class="lesson-actions">
+                    {% if progress.get(lesson.id) %}
+                        <span class="status-badge completed">✓ Completed</span>
+                    {% endif %}
+                    <a href="{{ url_for('lesson_view', lesson_id=lesson.id) }}" class="btn btn-secondary">View Lesson</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No lessons available yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

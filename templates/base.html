@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CS Teaching Site{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="container">
+                <h1><a href="{{ url_for('index') }}">CS Teaching Site</a></h1>
+                <div class="student-info">
+                    {% if student_name %}
+                        <span>Student: <strong>{{ student_name }}</strong></span>
+                    {% else %}
+                        <form method="POST" action="{{ url_for('set_student_name') }}" class="inline-form">
+                            <input type="text" name="student_name" placeholder="Enter your name" required>
+                            <button type="submit">Set Name</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </nav>
+    </header>
+    
+    <main>
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 CS Teaching Site</p>
+        </div>
+    </footer>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

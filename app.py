@@ -5,7 +5,8 @@ from werkzeug.utils import secure_filename
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+# Generate a random secret key if not provided
+app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'blend'}
@@ -224,8 +225,10 @@ def upload_file(lesson_id):
     if not allowed_file(file.filename):
         return "Only .blend files are allowed", 400
     
-    # Create student directory if it doesn't exist
-    student_dir = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(student_name))
+    # Create student directory using sanitized name
+    # Note: For production, consider using student IDs instead of names to avoid collisions
+    safe_student_name = secure_filename(student_name.replace(' ', '_'))
+    student_dir = os.path.join(app.config['UPLOAD_FOLDER'], safe_student_name)
     os.makedirs(student_dir, exist_ok=True)
     
     # Save file with lesson ID in filename
@@ -250,4 +253,6 @@ if __name__ == '__main__':
     # Initialize database on startup
     if not os.path.exists(DATABASE):
         init_db()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Debug mode controlled by environment variable for security
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)

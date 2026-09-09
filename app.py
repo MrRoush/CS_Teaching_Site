@@ -584,11 +584,14 @@ def remove_module_from_course(course_id, course_module_id):
 def grade_submission(submission_id):
     status = request.form.get('status', '').strip()
     feedback = request.form.get('feedback', '').strip()
-    score = request.form.get('score', '').strip()
+    raw_score = request.form.get('score', '').strip()
     if status not in {'submitted', 'in_review', 'graded', 'revision_requested'}:
         abort(400)
 
-    score_value = int(score) if score else None
+    if raw_score and not raw_score.isdigit():
+        abort(400)
+
+    score_value = int(raw_score) if raw_score else None
     if score_value is not None and not 0 <= score_value <= 100:
         abort(400)
 
@@ -771,7 +774,9 @@ def submit_project(course_id, course_module_id):
     return redirect(url_for('module_detail', course_id=course_id, course_module_id=course_module_id))
 
 
+init_db()
+
+
 if __name__ == '__main__':
-    init_db()
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     app.run(debug=debug_mode, host='0.0.0.0', port=5000)

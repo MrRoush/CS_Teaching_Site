@@ -49,6 +49,9 @@
             <label for="module-summary">Summary</label>
             <textarea id="module-summary" name="summary" rows="3" placeholder="What the module covers and why it matters" required></textarea>
 
+            <label for="module-objectives">Learning objectives</label>
+            <textarea id="module-objectives" name="objectives" rows="3" placeholder="List measurable objectives students should hit in this module" required></textarea>
+
             <label for="lesson-type">Lesson type</label>
             <select id="lesson-type" name="lesson_type">
                 <option value="mixed">Mixed</option>
@@ -57,17 +60,54 @@
                 <option value="project">Project</option>
             </select>
 
+            <fieldset>
+                <legend>Included activities</legend>
+                <div class="checkbox-list">
+                    <label>
+                        <input type="checkbox" name="activity_video" checked>
+                        <span>Video/resource lesson</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="activity_slides" checked>
+                        <span>Embedded or linked slides</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="activity_quiz" checked>
+                        <span>Quiz</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" name="activity_project" checked>
+                        <span>Project build + submission</span>
+                    </label>
+                </div>
+            </fieldset>
+
             <label for="content-url">Video or resource URL</label>
             <input id="content-url" name="content_url" type="url" placeholder="https://...">
 
             <label for="slide-url">Slide deck URL</label>
             <input id="slide-url" name="slide_url" type="url" placeholder="https://...">
 
+            <label for="godot-template-url">Godot starter template URL</label>
+            <input id="godot-template-url" name="godot_template_url" type="url" placeholder="https://github.com/.../template-project">
+
             <label for="quiz-prompt">Quiz prompt</label>
-            <textarea id="quiz-prompt" name="quiz_prompt" rows="2" placeholder="Quick check for understanding" required></textarea>
+            <textarea id="quiz-prompt" name="quiz_prompt" rows="2" placeholder="Quick check for understanding"></textarea>
+
+            <label for="quiz-questions">Quiz questions</label>
+            <textarea id="quiz-questions" name="quiz_questions" rows="5" placeholder="mcq|Question text|Option A|Option B|Option C|Option D|A&#10;short|Question text"></textarea>
+            <p class="muted">Use one line per question. MCQ format: mcq|question|A|B|C|D|CorrectLetter. Short answer format: short|question.</p>
+
+            <label for="quiz-max-attempts">Quiz attempts</label>
+            <input id="quiz-max-attempts" name="quiz_max_attempts" type="number" min="1" max="10" value="1">
+
+            <label class="checkbox-inline">
+                <input type="checkbox" name="quiz_allow_reassessment">
+                <span>Allow one reassessment attempt after max attempts</span>
+            </label>
 
             <label for="project-brief">Project brief</label>
-            <textarea id="project-brief" name="project_brief" rows="3" placeholder="What students should build and submit" required></textarea>
+            <textarea id="project-brief" name="project_brief" rows="3" placeholder="What students should build and submit"></textarea>
 
             <label class="checkbox-inline">
                 <input type="checkbox" name="godot_enabled">

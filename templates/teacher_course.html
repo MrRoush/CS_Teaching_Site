@@ -9,6 +9,9 @@
         <h1>{{ course.title }}</h1>
         <p class="lead">{{ course.description }}</p>
         <p class="muted">Focus: {{ course.focus_area }}</p>
+        <div class="module-actions">
+            <a href="{{ url_for('teacher_gradebook', course_id=course.id) }}" class="btn btn-secondary">Open gradebook</a>
+        </div>
     </div>
 </section>
 
@@ -26,12 +29,21 @@
                         <span class="status status-neutral">{{ module.lesson_type }}</span>
                     </div>
                     <p>{{ module.summary }}</p>
+                    <p class="muted"><strong>Objectives:</strong> {{ module.objectives }}</p>
+                    {% if module.due_date %}
+                        <p class="muted"><strong>Due date:</strong> {{ module.due_date }}</p>
+                    {% endif %}
                     <div class="module-actions">
                         <a href="{{ url_for('module_detail', course_id=course.id, course_module_id=module.id) }}" class="btn btn-secondary">Open module</a>
                         <form method="post" action="{{ url_for('remove_module_from_course', course_id=course.id, course_module_id=module.id) }}">
                             <button type="submit" class="btn btn-danger">Remove</button>
                         </form>
                     </div>
+                    <form method="post" action="{{ url_for('update_module_due_date', course_id=course.id, course_module_id=module.id) }}" class="stack-form">
+                        <label for="due-date-{{ module.id }}">Due date</label>
+                        <input id="due-date-{{ module.id }}" name="due_date" type="date" value="{{ module.due_date or '' }}">
+                        <button type="submit" class="btn btn-secondary">Save due date</button>
+                    </form>
                 </article>
             {% else %}
                 <p>No modules in this course yet.</p>
@@ -54,6 +66,9 @@
                 <input type="checkbox" name="required" checked>
                 <span>Mark as required for students</span>
             </label>
+
+            <label for="due_date">Due date</label>
+            <input id="due_date" name="due_date" type="date">
 
             <button type="submit" class="btn btn-primary">Add module</button>
         </form>
@@ -86,6 +101,15 @@
 
                     <label>Score</label>
                     <input type="number" name="score" min="0" max="100" value="{{ submission.score if submission.score is not none else '' }}">
+
+                    <label>Grading mode</label>
+                    <select name="grading_mode">
+                        <option value="points" {% if submission.grading_mode != 'rubric' %}selected{% endif %}>Points</option>
+                        <option value="rubric" {% if submission.grading_mode == 'rubric' %}selected{% endif %}>Rubric</option>
+                    </select>
+
+                    <label>Rubric notes</label>
+                    <textarea name="rubric_notes" rows="2">{{ submission.rubric_notes or '' }}</textarea>
 
                     <label>Feedback</label>
                     <textarea name="feedback" rows="3">{{ submission.feedback or '' }}</textarea>

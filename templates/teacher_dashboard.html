@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Teaching Studio{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <p class="eyebrow">Teacher dashboard</p>
+        <h1>Teaching Studio</h1>
+        <p class="lead">Create a course, mix modules, and review student project work from one place.</p>
+    </div>
+</section>
+
+<section class="grid-two dashboard-grid">
+    <article class="panel">
+        <h2>Create a course</h2>
+        <form method="post" action="{{ url_for('create_course') }}" class="stack-form">
+            <label for="title">Course title</label>
+            <input id="title" name="title" type="text" placeholder="Game Design Foundations" required>
+
+            <label for="description">Course description</label>
+            <textarea id="description" name="description" rows="3" placeholder="Overview, pacing, and assessment goals" required></textarea>
+
+            <label for="focus_area">Focus area</label>
+            <input id="focus_area" name="focus_area" type="text" placeholder="Godot 4.7.2, events, collision, polish" required>
+
+            <fieldset>
+                <legend>Start with module templates</legend>
+                <div class="checkbox-list">
+                    {% for template in templates %}
+                        <label>
+                            <input type="checkbox" name="template_ids" value="{{ template.id }}">
+                            <span><strong>{{ template.title }}</strong> — {{ template.summary }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary">Create course shell</button>
+        </form>
+    </article>
+
+    <article class="panel">
+        <h2>Create a reusable module</h2>
+        <form method="post" action="{{ url_for('create_module_template') }}" class="stack-form">
+            <label for="module-title">Module title</label>
+            <input id="module-title" name="title" type="text" placeholder="Platformer Physics Lab" required>
+
+            <label for="module-summary">Summary</label>
+            <textarea id="module-summary" name="summary" rows="3" placeholder="What the module covers and why it matters" required></textarea>
+
+            <label for="lesson-type">Lesson type</label>
+            <select id="lesson-type" name="lesson_type">
+                <option value="mixed">Mixed</option>
+                <option value="video">Video</option>
+                <option value="slides">Slides</option>
+                <option value="project">Project</option>
+            </select>
+
+            <label for="content-url">Video or resource URL</label>
+            <input id="content-url" name="content_url" type="url" placeholder="https://...">
+
+            <label for="slide-url">Slide deck URL</label>
+            <input id="slide-url" name="slide_url" type="url" placeholder="https://...">
+
+            <label for="quiz-prompt">Quiz prompt</label>
+            <textarea id="quiz-prompt" name="quiz_prompt" rows="2" placeholder="Quick check for understanding" required></textarea>
+
+            <label for="project-brief">Project brief</label>
+            <textarea id="project-brief" name="project_brief" rows="3" placeholder="What students should build and submit" required></textarea>
+
+            <label class="checkbox-inline">
+                <input type="checkbox" name="godot_enabled">
+                <span>Include Godot editor launch support</span>
+            </label>
+
+            <button type="submit" class="btn btn-secondary">Save module template</button>
+        </form>
+    </article>
+</section>
+
+<section class="grid-two dashboard-grid">
+    <article class="panel">
+        <div class="section-heading">
+            <h2>Your courses</h2>
+        </div>
+        <div class="card-grid single-column">
+            {% for course in courses %}
+                <article class="course-card">
+                    <h3>{{ course.title }}</h3>
+                    <p>{{ course.description }}</p>
+                    <ul class="feature-list compact muted-list">
+                        <li>{{ course.focus_area }}</li>
+                        <li>{{ course.module_count }} module{% if course.module_count != 1 %}s{% endif %}</li>
+                        <li>{{ course.student_count }} student{% if course.student_count != 1 %}s{% endif %}</li>
+                        <li>Average grade: {{ course.average_score if course.average_score is not none else 'Pending' }}</li>
+                    </ul>
+                    <a href="{{ url_for('teacher_course', course_id=course.id) }}" class="btn btn-secondary">Manage course</a>
+                </article>
+            {% else %}
+                <p>No courses yet.</p>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel">
+        <h2>Recent submissions</h2>
+        <div class="table-like">
+            {% for submission in submissions %}
+                <div class="table-row">
+                    <div>
+                        <strong>{{ submission.student_name }}</strong>
+                        <p>{{ submission.course_title }} · {{ submission.module_title }}</p>
+                    </div>
+                    <div>
+                        <span class="status status-{{ submission.status }}">{{ submission.status.replace('_', ' ') }}</span>
+                        <p>{{ submission.score if submission.score is not none else 'Ungraded' }}</p>
+                    </div>
+                </div>
+            {% else %}
+                <p>No submissions yet.</p>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+{% endblock %}

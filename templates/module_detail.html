@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}{{ module.module_title }}{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <p class="eyebrow">{{ course.title }}</p>
+        <h1>{{ module.module_title }}</h1>
+        <p class="lead">{{ module.summary }}</p>
+    </div>
+</section>
+
+<section class="grid-two dashboard-grid">
+    <article class="panel lesson-panel">
+        <h2>Instructional content</h2>
+        <div class="resource-stack">
+            {% if module.content_url %}
+                <div>
+                    <p class="resource-label">Lesson resource</p>
+                    <div class="embed-shell">
+                        <iframe src="{{ module.content_url }}" title="Lesson content" allowfullscreen loading="lazy"></iframe>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if module.slide_url %}
+                <div>
+                    <p class="resource-label">Slide deck</p>
+                    <a href="{{ module.slide_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open slides</a>
+                </div>
+            {% endif %}
+
+            <div>
+                <p class="resource-label">Check for understanding</p>
+                <p>{{ module.quiz_prompt }}</p>
+            </div>
+
+            <div>
+                <p class="resource-label">Project brief</p>
+                <p>{{ module.project_brief }}</p>
+            </div>
+        </div>
+    </article>
+
+    <article class="panel lesson-panel">
+        <h2>Godot workflow</h2>
+        {% if module.godot_enabled %}
+            <p class="muted">Launch the online editor in a new tab, or try the embedded preview if your browser allows it.</p>
+            <div class="module-actions">
+                <a href="{{ godot_editor_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Open Godot 4.7.2</a>
+            </div>
+            <div class="embed-shell tall-frame">
+                <iframe src="{{ godot_editor_url }}" title="Godot editor preview" loading="lazy"></iframe>
+            </div>
+        {% else %}
+            <p>This module does not currently require the embedded Godot editor.</p>
+        {% endif %}
+    </article>
+</section>
+
+{% if current_user.role == 'student' %}
+<section class="panel">
+    <h2>Submit your project</h2>
+    {% if student_submission %}
+        <div class="callout">
+            <p><strong>Status:</strong> {{ student_submission.status.replace('_', ' ') }}</p>
+            <p><strong>Latest link:</strong> <a href="{{ student_submission.submission_link }}" target="_blank" rel="noopener noreferrer">{{ student_submission.submission_link }}</a></p>
+            {% if student_submission.score is not none %}
+                <p><strong>Score:</strong> {{ student_submission.score }}</p>
+            {% endif %}
+            {% if student_submission.feedback %}
+                <p><strong>Feedback:</strong> {{ student_submission.feedback }}</p>
+            {% endif %}
+        </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('submit_project', course_id=course.id, course_module_id=module.id) }}" class="stack-form">
+        <label for="submission_link">Project link</label>
+        <input id="submission_link" name="submission_link" type="url" placeholder="Repository, build, drive folder, or hosted game URL" required>
+
+        <label for="notes">Submission notes</label>
+        <textarea id="notes" name="notes" rows="4" placeholder="Controls, known issues, questions for your teacher"></textarea>
+
+        <button type="submit" class="btn btn-primary">Submit project</button>
+    </form>
+</section>
+{% else %}
+<section class="panel">
+    <h2>Teacher review view</h2>
+    <div class="submission-grid">
+        {% for submission in submissions %}
+            <article class="submission-card">
+                <div class="submission-card-head">
+                    <div>
+                        <h3>{{ submission.student_name }}</h3>
+                        <p>{{ submission.submitted_at }}</p>
+                    </div>
+                    <span class="status status-{{ submission.status }}">{{ submission.status.replace('_', ' ') }}</span>
+                </div>
+                <p><a href="{{ submission.submission_link }}" target="_blank" rel="noopener noreferrer">Open submission</a></p>
+                {% if submission.notes %}
+                    <p class="muted">{{ submission.notes }}</p>
+                {% endif %}
+                {% if submission.feedback %}
+                    <p><strong>Feedback:</strong> {{ submission.feedback }}</p>
+                {% endif %}
+            </article>
+        {% else %}
+            <p>No student submissions for this module yet.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

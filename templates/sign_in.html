@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Demo Sign-In{% endblock %}
+
+{% block content %}
+<section class="panel narrow-panel">
+    <p class="eyebrow">Prototype access</p>
+    <h1>Demo sign-in</h1>
+    <p class="lead">Use a seeded account to review the teacher and student flows. For production, replace this page with Google Workspace OAuth and school-managed account provisioning.</p>
+
+    <form method="post" class="stack-form">
+        <label for="user_id">Choose a demo account</label>
+        <select id="user_id" name="user_id" required>
+            <option value="">Select an account</option>
+            {% for user in users %}
+                <option value="{{ user.id }}">{{ user.name }} — {{ user.role|title }} ({{ user.email }})</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Continue</button>
+    </form>
+
+    <div class="callout">
+        <h2>Recommended production auth</h2>
+        <ul class="feature-list compact">
+            <li>Google Workspace OAuth for staff and students</li>
+            <li>District-approved domain restriction and consent screen</li>
+            <li>Role mapping from roster or admin assignment</li>
+            <li>Managed session storage, audit logs, and privacy disclosures</li>
+        </ul>
+    </div>
+</section>
+{% endblock %}

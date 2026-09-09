@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} · Teaching Studio{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <p class="eyebrow">Course builder</p>
+        <h1>{{ course.title }}</h1>
+        <p class="lead">{{ course.description }}</p>
+        <p class="muted">Focus: {{ course.focus_area }}</p>
+    </div>
+</section>
+
+<section class="grid-two dashboard-grid">
+    <article class="panel">
+        <h2>Course modules</h2>
+        <div class="module-list">
+            {% for module in modules %}
+                <article class="module-card">
+                    <div class="module-card-top">
+                        <div>
+                            <p class="eyebrow">Module {{ module.position }}</p>
+                            <h3>{{ module.module_title }}</h3>
+                        </div>
+                        <span class="status status-neutral">{{ module.lesson_type }}</span>
+                    </div>
+                    <p>{{ module.summary }}</p>
+                    <div class="module-actions">
+                        <a href="{{ url_for('module_detail', course_id=course.id, course_module_id=module.id) }}" class="btn btn-secondary">Open module</a>
+                        <form method="post" action="{{ url_for('remove_module_from_course', course_id=course.id, course_module_id=module.id) }}">
+                            <button type="submit" class="btn btn-danger">Remove</button>
+                        </form>
+                    </div>
+                </article>
+            {% else %}
+                <p>No modules in this course yet.</p>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel">
+        <h2>Add module from library</h2>
+        <form method="post" action="{{ url_for('add_module_to_course', course_id=course.id) }}" class="stack-form">
+            <label for="module_template_id">Module template</label>
+            <select id="module_template_id" name="module_template_id" required>
+                <option value="">Choose a module</option>
+                {% for template in templates %}
+                    <option value="{{ template.id }}">{{ template.title }} — {{ template.summary }}</option>
+                {% endfor %}
+            </select>
+
+            <label class="checkbox-inline">
+                <input type="checkbox" name="required" checked>
+                <span>Mark as required for students</span>
+            </label>
+
+            <button type="submit" class="btn btn-primary">Add module</button>
+        </form>
+    </article>
+</section>
+
+<section class="panel">
+    <h2>Submission review</h2>
+    <div class="submission-grid">
+        {% for submission in submissions %}
+            <article class="submission-card">
+                <div class="submission-card-head">
+                    <div>
+                        <h3>{{ submission.student_name }}</h3>
+                        <p>{{ submission.module_title }}</p>
+                    </div>
+                    <span class="status status-{{ submission.status }}">{{ submission.status.replace('_', ' ') }}</span>
+                </div>
+                <p><a href="{{ submission.submission_link }}" target="_blank" rel="noopener noreferrer">Open submission</a></p>
+                {% if submission.notes %}
+                    <p class="muted">{{ submission.notes }}</p>
+                {% endif %}
+                <form method="post" action="{{ url_for('grade_submission', submission_id=submission.id) }}" class="stack-form">
+                    <label>Status</label>
+                    <select name="status">
+                        {% for option in ['submitted', 'in_review', 'graded', 'revision_requested'] %}
+                            <option value="{{ option }}" {% if submission.status == option %}selected{% endif %}>{{ option.replace('_', ' ') }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <label>Score</label>
+                    <input type="number" name="score" min="0" max="100" value="{{ submission.score if submission.score is not none else '' }}">
+
+                    <label>Feedback</label>
+                    <textarea name="feedback" rows="3">{{ submission.feedback or '' }}</textarea>
+
+                    <button type="submit" class="btn btn-secondary">Save review</button>
+                </form>
+            </article>
+        {% else %}
+            <p>No submissions yet.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

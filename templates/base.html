@@ -7,36 +7,48 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <header>
-        <nav>
-            <div class="container">
-                <h1><a href="{{ url_for('index') }}">CS Teaching Site</a></h1>
-                <div class="student-info">
-                    {% if student_name %}
-                        <span>Student: <strong>{{ student_name }}</strong></span>
+    <header class="site-header">
+        <div class="container nav-shell">
+            <a href="{{ url_for('index') }}" class="brand">CS Teaching Site</a>
+            <nav class="nav-links">
+                {% if current_user %}
+                    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                    {% if current_user.role == 'teacher' %}
+                        <a href="{{ url_for('teacher_dashboard') }}">Teaching Studio</a>
                     {% else %}
-                        <form method="POST" action="{{ url_for('set_student_name') }}" class="inline-form">
-                            <input type="text" name="student_name" placeholder="Enter your name" required>
-                            <button type="submit">Set Name</button>
-                        </form>
+                        <a href="{{ url_for('student_dashboard') }}">Learning Hub</a>
                     {% endif %}
-                </div>
-            </div>
-        </nav>
+                    <span class="user-chip">{{ current_user.name }} · {{ current_user.role|title }}</span>
+                    <form method="post" action="{{ url_for('logout') }}">
+                        <button type="submit" class="btn btn-ghost">Sign Out</button>
+                    </form>
+                {% else %}
+                    <a href="{{ url_for('sign_in') }}" class="btn btn-primary">Demo Sign-In</a>
+                {% endif %}
+            </nav>
+        </div>
     </header>
-    
+
     <main>
-        <div class="container">
+        <div class="container page-shell">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-stack">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
             {% block content %}{% endblock %}
         </div>
     </main>
-    
-    <footer>
-        <div class="container">
-            <p>&copy; 2026 CS Teaching Site</p>
+
+    <footer class="site-footer">
+        <div class="container footer-shell">
+            <p>Prototype scaffold for privacy-aware CS course delivery and project assessment.</p>
+            <p>&copy; {{ current_year }} CS Teaching Site</p>
         </div>
     </footer>
-    
-    {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Learning Hub{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <p class="eyebrow">Student dashboard</p>
+        <h1>Learning Hub</h1>
+        <p class="lead">Track modules, open the Godot workflow, and submit projects for review.</p>
+    </div>
+</section>
+
+<section class="grid-two dashboard-grid">
+    <article class="panel">
+        <h2>Your courses</h2>
+        <div class="card-grid single-column">
+            {% for course in course_cards %}
+                <article class="course-card">
+                    <p class="eyebrow">Teacher: {{ course.teacher_name }}</p>
+                    <h3>{{ course.title }}</h3>
+                    <p>{{ course.description }}</p>
+                    <ul class="feature-list compact muted-list">
+                        <li>{{ course.focus_area }}</li>
+                        <li>{{ course.submitted_count }}/{{ course.module_count }} modules submitted</li>
+                        <li>{{ course.graded_count }} graded review{% if course.graded_count != 1 %}s{% endif %}</li>
+                        <li>Average: {{ course.average_score if course.average_score is not none else 'Pending' }}</li>
+                    </ul>
+                </article>
+            {% else %}
+                <p>No enrollments yet.</p>
+            {% endfor %}
+        </div>
+    </article>
+
+    <article class="panel">
+        <h2>Module queue</h2>
+        <div class="module-list compact-list">
+            {% for module in upcoming_modules %}
+                <article class="module-card">
+                    <div class="module-card-top">
+                        <div>
+                            <p class="eyebrow">{{ module.course_title }}</p>
+                            <h3>{{ module.module_title }}</h3>
+                        </div>
+                        <span class="status {% if module.status %}status-{{ module.status }}{% else %}status-neutral{% endif %}">
+                            {{ module.status.replace('_', ' ') if module.status else 'not submitted' }}
+                        </span>
+                    </div>
+                    <p>{{ module.summary }}</p>
+                    <div class="module-actions">
+                        <a href="{{ url_for('module_detail', course_id=module.course_id, course_module_id=module.course_module_id) }}" class="btn btn-secondary">Open module</a>
+                        {% if module.godot_enabled %}
+                            <a href="{{ godot_editor_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">Launch Godot</a>
+                        {% endif %}
+                    </div>
+                </article>
+            {% else %}
+                <p>No modules assigned yet.</p>
+            {% endfor %}
+        </div>
+    </article>
+</section>
+{% endblock %}

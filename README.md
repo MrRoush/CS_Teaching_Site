@@ -7,8 +7,8 @@ A reset prototype for a computer science teaching platform focused on privacy-aw
 This scaffold replaces the original lesson playlist starter with a more relevant structure for the new site direction:
 
 - Demo sign-in flow that separates teacher and student experiences while documenting the path to Google Workspace authentication
-- Teacher dashboard for creating courses, assembling modules, and reviewing project submissions
-- Reusable module library with support for lesson links, slide decks, quiz prompts, project briefs, and optional Godot editor access
+- Teacher dashboard for creating courses, launching a persistent-sidebar Course Builder, and reviewing project submissions
+- Reusable module library plus nested course authoring for modules, lessons, activities, quiz settings, and optional Godot editor access
 - Student dashboard for opening assigned modules, launching the Godot 4.7.2 web editor, and submitting project links for review
 - Seeded SQLite demo data so the app can be deployed and explored immediately
 
@@ -89,8 +89,14 @@ These questions should guide the next iteration:
 1. Sign in as the teacher account.
 2. Create a new course shell from the dashboard.
 3. Add existing module templates or create a new reusable module.
-4. Open a course to remove modules or review student submissions.
+4. Open a class to launch the Course Builder and manage modules, lessons, and activities in the sidebar layout.
 5. Score work and leave feedback from the submission review forms.
+
+## Course Builder implementation notes
+
+- **Course Builder page:** `/teacher/course/<course_id>` in `app.py`, rendered by `templates/teacher_course_builder.html`, with the persistent teacher shell defined in `templates/base.html` and styled in `static/css/style.css`.
+- **Activity type configuration:** teacher activity authoring is validated in `validate_activity_form()` inside `app.py`. The current MVP builder supports video, slides, text, quiz, and project activities, with text activities stored through the existing `resource` item type for SQLite compatibility.
+- **Quiz schema and settings:** quiz questions, answer keys, and attempt settings are stored on `module_lesson_items` (`quiz_prompt`, `quiz_questions_json`, `quiz_max_attempts`, `quiz_unlimited_attempts`, `quiz_allow_reassessment`). The first quiz in a module outline is synchronized onto `module_templates` for the current student quiz flow and auto-grading pipeline.
 
 ### Student walkthrough
 
@@ -128,9 +134,10 @@ CS_Teaching_Site/
 │   ├── base.html
 │   ├── index.html
 │   ├── module_detail.html
+│   ├── module_template_builder.html
 │   ├── sign_in.html
 │   ├── student_dashboard.html
-│   ├── teacher_course.html
+│   ├── teacher_course_builder.html
 │   └── teacher_dashboard.html
 └── cs_teaching.db   # created on first run
 ```

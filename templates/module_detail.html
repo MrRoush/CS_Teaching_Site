@@ -15,7 +15,7 @@
         {% endif %}
         {% if current_user.role == 'teacher' and module.created_by == current_user.id %}
             <div class="module-actions">
-                <a href="{{ url_for('module_template_builder', template_id=module.module_template_id) }}" class="btn btn-secondary">Edit unit builder</a>
+                <a href="{{ url_for('teacher_course', course_id=course.id, panel='edit-module', module_id=module.id) }}" class="btn btn-secondary">Edit in course builder</a>
             </div>
         {% endif %}
     </div>
@@ -38,7 +38,7 @@
                                 <div class="module-card-top">
                                     <div>
                                         <p class="resource-label">{{ item.title }}</p>
-                                        <p class="muted">{{ item.item_type|replace('_', ' ') }}</p>
+                                        <p class="muted">{{ item.type_label }}</p>
                                     </div>
                                     {% if item.points_possible is not none %}
                                         <span class="status status-neutral">{{ item.points_possible }} pts</span>
@@ -51,6 +51,11 @@
                                     <div class="embed-shell">
                                         <iframe src="{{ item.resource_url }}" title="{{ item.title }}" allowfullscreen loading="lazy"></iframe>
                                     </div>
+                                {% elif item.presented_type == 'text' and item.content_text %}
+                                    <p class="activity-rich-text">{{ item.content_text }}</p>
+                                    {% if item.resource_url %}
+                                        <a href="{{ item.resource_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open document</a>
+                                    {% endif %}
                                 {% elif item.resource_url %}
                                     <a href="{{ item.resource_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open resource</a>
                                 {% endif %}
@@ -106,7 +111,7 @@
 <section class="panel">
     <h2>Quiz</h2>
     {% if current_user.role == 'student' %}
-        <p class="muted">Attempts remaining: {{ quiz_attempts_remaining }}</p>
+        <p class="muted">Attempts remaining: {{ 'Unlimited' if quiz_attempts_remaining is none else quiz_attempts_remaining }}</p>
         {% if quiz_questions and quiz_attempts_remaining > 0 %}
             <form method="post" action="{{ url_for('submit_quiz', course_id=course.id, course_module_id=module.id) }}" class="stack-form">
                 {% for question in quiz_questions %}

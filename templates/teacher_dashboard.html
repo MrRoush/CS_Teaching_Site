@@ -93,7 +93,7 @@
                         <li>{{ course.student_count }} student{% if course.student_count != 1 %}s{% endif %}</li>
                         <li>Average grade: {{ course.average_score if course.average_score is not none else 'Pending' }}</li>
                     </ul>
-                    <a href="{{ url_for('teacher_course', course_id=course.id) }}" class="btn btn-secondary">Manage course</a>
+                    <a href="{{ url_for('teacher_course', course_id=course.id) }}" class="btn btn-secondary">Open course builder</a>
                 </article>
             {% else %}
                 <p>No courses yet.</p>

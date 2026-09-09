@@ -9,6 +9,14 @@ from flask import Flask, abort, flash, g, redirect, render_template, request, se
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, 'cs_teaching.db')
 GODOT_EDITOR_URL = 'https://editor.godotengine.org/releases/4.7.2.stable/godot.editor.html'
+ACTIVITY_TYPE_LABELS = {
+    'video': 'Video Activity',
+    'slides': 'Slides Activity',
+    'text': 'Text Activity',
+    'quiz': 'Quiz Activity',
+    'project': 'Project Activity',
+}
+QUIZ_ANSWER_LETTERS = ('A', 'B', 'C', 'D')
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY') or os.urandom(24).hex()
@@ -60,9 +68,11 @@ def init_db():
             quiz_prompt TEXT NOT NULL,
             quiz_questions_json TEXT NOT NULL DEFAULT '[]',
             quiz_max_attempts INTEGER NOT NULL DEFAULT 1,
+            quiz_unlimited_attempts BOOLEAN DEFAULT 0,
             quiz_allow_reassessment BOOLEAN DEFAULT 0,
             project_brief TEXT NOT NULL,
             godot_enabled BOOLEAN DEFAULT 0,
+            is_reusable BOOLEAN DEFAULT 1,
             created_by INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (created_by) REFERENCES users(id)
@@ -84,11 +94,13 @@ def init_db():
             title TEXT NOT NULL,
             item_type TEXT NOT NULL CHECK(item_type IN ('video', 'resource', 'slides', 'quiz', 'project')),
             description TEXT NOT NULL DEFAULT '',
+            content_text TEXT NOT NULL DEFAULT '',
             resource_url TEXT,
             points_possible INTEGER,
             quiz_prompt TEXT NOT NULL DEFAULT '',
             quiz_questions_json TEXT NOT NULL DEFAULT '[]',
             quiz_max_attempts INTEGER NOT NULL DEFAULT 1,
+            quiz_unlimited_attempts BOOLEAN DEFAULT 0,
             quiz_allow_reassessment BOOLEAN DEFAULT 0,
             project_brief TEXT NOT NULL DEFAULT '',
             godot_enabled BOOLEAN DEFAULT 0,
@@ -169,7 +181,11 @@ def init_db():
     ensure_column('module_templates', 'activity_project', 'BOOLEAN DEFAULT 1')
     ensure_column('module_templates', 'quiz_questions_json', "TEXT NOT NULL DEFAULT '[]'")
     ensure_column('module_templates', 'quiz_max_attempts', 'INTEGER NOT NULL DEFAULT 1')
+    ensure_column('module_templates', 'quiz_unlimited_attempts', 'BOOLEAN DEFAULT 0')
     ensure_column('module_templates', 'quiz_allow_reassessment', 'BOOLEAN DEFAULT 0')
+    ensure_column('module_templates', 'is_reusable', 'BOOLEAN DEFAULT 1')
+    ensure_column('module_lesson_items', 'content_text', "TEXT NOT NULL DEFAULT ''")
+    ensure_column('module_lesson_items', 'quiz_unlimited_attempts', 'BOOLEAN DEFAULT 0')
     ensure_column('course_modules', 'due_date', 'TEXT')
     ensure_column('project_submissions', 'grading_mode', "TEXT NOT NULL DEFAULT 'points'")
     ensure_column('project_submissions', 'rubric_notes', 'TEXT')
@@ -203,11 +219,13 @@ def init_db():
                             'Video lesson',
                             'video',
                             template['summary'],
+                            '',
                             template['content_url'],
                             None,
                             '',
                             '[]',
                             1,
+                            0,
                             0,
                             '',
                             0,
@@ -223,10 +241,12 @@ def init_db():
                             'resource',
                             template['summary'],
                             '',
+                            '',
                             None,
                             '',
                             '[]',
                             1,
+                            0,
                             0,
                             '',
                             0,
@@ -241,11 +261,13 @@ def init_db():
                         'Slides / presentation',
                         'slides',
                         'Use this slide deck or presentation while teaching the lesson.',
+                        '',
                         template['slide_url'],
                         None,
                         '',
                         '[]',
                         1,
+                        0,
                         0,
                         '',
                         0,
@@ -261,10 +283,12 @@ def init_db():
                         'quiz',
                         template['quiz_prompt'],
                         '',
+                        '',
                         100,
                         template['quiz_prompt'],
                         template['quiz_questions_json'] or '[]',
                         template['quiz_max_attempts'],
+                        template['quiz_unlimited_attempts'],
                         template['quiz_allow_reassessment'],
                         '',
                         0,
@@ -279,11 +303,13 @@ def init_db():
                         'Godot project' if template['godot_enabled'] else 'Project assignment',
                         'project',
                         template['project_brief'],
+                        '',
                         template['godot_template_url'],
                         100,
                         '',
                         '[]',
                         1,
+                        0,
                         0,
                         template['project_brief'],
                         template['godot_enabled'],
@@ -296,10 +322,10 @@ def init_db():
                 db.executemany(
                     '''
                     INSERT INTO module_lesson_items (
-                        lesson_id, title, item_type, description, resource_url, points_possible,
-                        quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_allow_reassessment,
+                        lesson_id, title, item_type, description, content_text, resource_url, points_possible,
+                        quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
                         project_brief, godot_enabled, godot_template_url, position
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''',
                     lesson_items,
                 )
@@ -346,8 +372,10 @@ def init_db():
                     ]
                 ),
                 2,
+                0,
                 1,
                 'Build a starter scene and share either a hosted build, repository link, or exported project archive.',
+                1,
                 1,
                 teacher_id,
             ),
@@ -376,8 +404,10 @@ def init_db():
                 ),
                 1,
                 0,
+                0,
                 'Create a short reflection and pseudocode for the loop you will use in your project.',
                 0,
+                1,
                 teacher_id,
             ),
             (
@@ -402,8 +432,10 @@ def init_db():
                     ]
                 ),
                 3,
+                0,
                 1,
                 'Submit a playable prototype plus a short design note explaining controls, win state, and next iteration goals.',
+                1,
                 1,
                 teacher_id,
             ),
@@ -414,9 +446,9 @@ def init_db():
             INSERT INTO module_templates (
                 title, summary, objectives, lesson_type, content_url, slide_url, godot_template_url,
                 activity_video, activity_slides, activity_quiz, activity_project,
-                quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_allow_reassessment,
-                project_brief, godot_enabled, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
+                project_brief, godot_enabled, is_reusable, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''',
             module_templates,
         )
@@ -476,6 +508,7 @@ def init_db():
         )
 
     backfill_module_outline()
+    ensure_private_course_module_templates(db)
     db.commit()
     db.close()
 
@@ -576,6 +609,225 @@ def load_quiz_questions(quiz_questions_json):
     return []
 
 
+def to_storage_activity_type(activity_type):
+    return 'resource' if activity_type == 'text' else activity_type
+
+
+def to_presented_activity_type(item_type):
+    return 'text' if item_type == 'resource' else item_type
+
+
+def get_activity_type_label(item_type):
+    return ACTIVITY_TYPE_LABELS.get(to_presented_activity_type(item_type), item_type.replace('_', ' ').title())
+
+
+def collect_quiz_questions(form_data):
+    if hasattr(form_data, 'get'):
+        raw_question_count = form_data.get('question_count', type=int) if 'question_count' in form_data else None
+    else:
+        raw_question_count = form_data.get('question_count', 1)
+    question_count = max(1, min(raw_question_count or 1, 10))
+    questions = []
+    errors = {}
+    for index in range(question_count):
+        prompt = form_data.get(f'question_{index}_prompt', '').strip()
+        options = [form_data.get(f'question_{index}_option_{letter}', '').strip() for letter in QUIZ_ANSWER_LETTERS]
+        answer = form_data.get(f'question_{index}_answer', '').strip().upper()
+        if not prompt:
+            errors[f'question_{index}_prompt'] = 'Question prompt is required.'
+        if any(not option for option in options):
+            errors[f'question_{index}_options'] = 'All answer choices are required.'
+        if answer not in QUIZ_ANSWER_LETTERS:
+            errors[f'question_{index}_answer'] = 'Choose the correct answer.'
+        questions.append(
+            {
+                'type': 'mcq',
+                'question': prompt,
+                'options': options,
+                'answer': answer,
+            }
+        )
+    return questions, errors, question_count
+
+
+def get_default_activity_form(activity_type='video'):
+    return {
+        'activity_type': activity_type,
+        'title': '',
+        'description': '',
+        'resource_url': '',
+        'content_text': '',
+        'quiz_prompt': '',
+        'question_count': 1,
+        'quiz_max_attempts': 1,
+        'quiz_unlimited_attempts': False,
+        'quiz_allow_reassessment': False,
+        'questions': [
+            {
+                'prompt': '',
+                'options': {letter: '' for letter in QUIZ_ANSWER_LETTERS},
+                'answer': 'A',
+            }
+        ],
+        'project_brief': '',
+        'godot_enabled': False,
+        'godot_template_url': '',
+    }
+
+
+def get_activity_form_from_item(item):
+    activity_type = to_presented_activity_type(item['item_type'])
+    questions = load_quiz_questions(item['quiz_questions_json']) if activity_type == 'quiz' else []
+    form = {
+        'activity_type': activity_type,
+        'title': item['title'],
+        'description': item['description'],
+        'resource_url': item['resource_url'] or '',
+        'content_text': item['content_text'] or '',
+        'quiz_prompt': item['quiz_prompt'] or '',
+        'question_count': len(questions) or 1,
+        'quiz_max_attempts': item['quiz_max_attempts'] or 1,
+        'quiz_unlimited_attempts': bool(item['quiz_unlimited_attempts']),
+        'quiz_allow_reassessment': bool(item['quiz_allow_reassessment']),
+        'questions': [],
+        'project_brief': item['project_brief'] or '',
+        'godot_enabled': bool(item['godot_enabled']),
+        'godot_template_url': item['godot_template_url'] or '',
+    }
+    if questions:
+        for question in questions:
+            options = question.get('options') or ['', '', '', '']
+            while len(options) < 4:
+                options.append('')
+            form['questions'].append(
+                {
+                    'prompt': question.get('question', ''),
+                    'options': {letter: options[idx] for idx, letter in enumerate(QUIZ_ANSWER_LETTERS)},
+                    'answer': (question.get('answer') or 'A').upper(),
+                }
+            )
+    else:
+        form['questions'].append(
+            {
+                'prompt': '',
+                'options': {letter: '' for letter in QUIZ_ANSWER_LETTERS},
+                'answer': 'A',
+            }
+        )
+    return form
+
+
+def resize_activity_questions(form_data, question_count):
+    question_count = max(1, min(question_count, 10))
+    questions = list(form_data.get('questions') or [])
+    while len(questions) < question_count:
+        questions.append(
+            {
+                'prompt': '',
+                'options': {letter: '' for letter in QUIZ_ANSWER_LETTERS},
+                'answer': 'A',
+            }
+        )
+    form_data['questions'] = questions[:question_count]
+    form_data['question_count'] = question_count
+    return form_data
+
+
+def validate_activity_form(form):
+    activity_type = form.get('activity_type', '').strip().lower()
+    title = form.get('title', '').strip()
+    description = form.get('description', '').strip()
+    resource_url = form.get('resource_url', '').strip()
+    content_text = form.get('content_text', '').strip()
+    quiz_prompt = form.get('quiz_prompt', '').strip()
+    project_brief = form.get('project_brief', '').strip()
+    godot_template_url = form.get('godot_template_url', '').strip()
+    question_count = form.get('question_count', type=int) or 1
+    quiz_max_attempts = form.get('quiz_max_attempts', type=int) or 1
+    quiz_unlimited_attempts = form.get('quiz_unlimited_attempts') == 'on'
+    quiz_allow_reassessment = form.get('quiz_allow_reassessment') == 'on'
+    godot_enabled = form.get('godot_enabled') == 'on'
+
+    form_data = get_default_activity_form(activity_type if activity_type in ACTIVITY_TYPE_LABELS else 'video')
+    form_data.update(
+        {
+            'title': title,
+            'description': description,
+            'resource_url': resource_url,
+            'content_text': content_text,
+            'quiz_prompt': quiz_prompt,
+            'question_count': max(1, min(question_count, 10)),
+            'quiz_max_attempts': quiz_max_attempts,
+            'quiz_unlimited_attempts': quiz_unlimited_attempts,
+            'quiz_allow_reassessment': quiz_allow_reassessment,
+            'project_brief': project_brief,
+            'godot_enabled': godot_enabled,
+            'godot_template_url': godot_template_url,
+        }
+    )
+
+    errors = {}
+    if activity_type not in ACTIVITY_TYPE_LABELS:
+        errors['activity_type'] = 'Choose an activity type.'
+    if not title:
+        errors['title'] = 'Activity title is required.'
+    if activity_type in {'video', 'slides'} and not resource_url:
+        errors['resource_url'] = 'An embed URL is required for this activity.'
+    if activity_type == 'text' and not content_text and not resource_url:
+        errors['content_text'] = 'Add rich text content or an embedded document URL.'
+    if activity_type == 'quiz':
+        if not quiz_prompt:
+            errors['quiz_prompt'] = 'Quiz instructions are required.'
+        if not quiz_unlimited_attempts and not 1 <= quiz_max_attempts <= 20:
+            errors['quiz_max_attempts'] = 'Limited attempts must be between 1 and 20.'
+        questions, question_errors, question_count = collect_quiz_questions(form)
+        form_data['question_count'] = question_count
+        form_data['questions'] = [
+            {
+                'prompt': question['question'],
+                'options': {letter: question['options'][idx] for idx, letter in enumerate(QUIZ_ANSWER_LETTERS)},
+                'answer': question['answer'] or 'A',
+            }
+            for question in questions
+        ]
+        errors.update(question_errors)
+    elif activity_type == 'project':
+        if not description and not project_brief:
+            errors['project_brief'] = 'Add teacher directions or a project brief.'
+    else:
+        form_data['questions'] = form_data['questions'][:1]
+
+    cleaned = {
+        'item_type': to_storage_activity_type(activity_type),
+        'title': title,
+        'description': description,
+        'content_text': content_text,
+        'resource_url': resource_url,
+        'points_possible': 100 if activity_type in {'quiz', 'project'} else None,
+        'quiz_prompt': quiz_prompt if activity_type == 'quiz' else '',
+        'quiz_questions_json': json.dumps(
+            [
+                {
+                    'type': 'mcq',
+                    'question': question['prompt'],
+                    'options': [question['options'][letter] for letter in QUIZ_ANSWER_LETTERS],
+                    'answer': question['answer'],
+                }
+                for question in form_data['questions']
+            ]
+        )
+        if activity_type == 'quiz'
+        else '[]',
+        'quiz_max_attempts': quiz_max_attempts if activity_type == 'quiz' else 1,
+        'quiz_unlimited_attempts': 1 if activity_type == 'quiz' and quiz_unlimited_attempts else 0,
+        'quiz_allow_reassessment': 1 if activity_type == 'quiz' and quiz_allow_reassessment else 0,
+        'project_brief': project_brief if activity_type == 'project' else '',
+        'godot_enabled': 1 if activity_type == 'project' and godot_enabled else 0,
+        'godot_template_url': godot_template_url if activity_type == 'project' else '',
+    }
+    return cleaned, form_data, errors
+
+
 def determine_module_lesson_type(item_types):
     item_types = set(item_types)
     if not item_types:
@@ -633,6 +885,7 @@ def sync_module_template_from_outline(db, module_template_id):
             quiz_prompt = ?,
             quiz_questions_json = ?,
             quiz_max_attempts = ?,
+            quiz_unlimited_attempts = ?,
             quiz_allow_reassessment = ?,
             project_brief = ?,
             godot_enabled = ?
@@ -650,6 +903,7 @@ def sync_module_template_from_outline(db, module_template_id):
             first_quiz['quiz_prompt'] if first_quiz else '',
             first_quiz['quiz_questions_json'] if first_quiz else '[]',
             first_quiz['quiz_max_attempts'] if first_quiz else 1,
+            first_quiz['quiz_unlimited_attempts'] if first_quiz else 0,
             first_quiz['quiz_allow_reassessment'] if first_quiz else 0,
             first_project['project_brief'] if first_project else '',
             first_project['godot_enabled'] if first_project else 0,
@@ -686,7 +940,11 @@ def get_module_lessons(db, module_template_id):
         (module_template_id,),
     ).fetchall()
     for item in items:
-        lesson_lookup[item['lesson_id']]['items'].append(dict(item))
+        item_dict = dict(item)
+        item_dict['presented_type'] = to_presented_activity_type(item_dict['item_type'])
+        item_dict['type_label'] = get_activity_type_label(item_dict['item_type'])
+        item_dict['quiz_question_count'] = len(load_quiz_questions(item_dict['quiz_questions_json'])) if item_dict['item_type'] == 'quiz' else 0
+        lesson_lookup[item['lesson_id']]['items'].append(item_dict)
     return lessons
 
 
@@ -701,6 +959,264 @@ def summarize_module_outline(lessons):
     return lesson_count, item_count, points_possible
 
 
+def clone_module_template(db, source_template_id, created_by, is_reusable=0):
+    source_template = db.execute(
+        'SELECT * FROM module_templates WHERE id = ?',
+        (source_template_id,),
+    ).fetchone()
+    if not source_template:
+        return None
+
+    new_template_id = db.execute(
+        '''
+        INSERT INTO module_templates (
+            title, summary, objectives, lesson_type, content_url, slide_url, godot_template_url,
+            activity_video, activity_slides, activity_quiz, activity_project,
+            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
+            project_brief, godot_enabled, is_reusable, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        (
+            source_template['title'],
+            source_template['summary'],
+            source_template['objectives'],
+            source_template['lesson_type'],
+            source_template['content_url'],
+            source_template['slide_url'],
+            source_template['godot_template_url'],
+            source_template['activity_video'],
+            source_template['activity_slides'],
+            source_template['activity_quiz'],
+            source_template['activity_project'],
+            source_template['quiz_prompt'],
+            source_template['quiz_questions_json'],
+            source_template['quiz_max_attempts'],
+            source_template['quiz_unlimited_attempts'],
+            source_template['quiz_allow_reassessment'],
+            source_template['project_brief'],
+            source_template['godot_enabled'],
+            is_reusable,
+            created_by,
+        ),
+    ).lastrowid
+
+    lesson_rows = db.execute(
+        '''
+        SELECT *
+        FROM module_lessons
+        WHERE module_template_id = ?
+        ORDER BY position, id
+        ''',
+        (source_template_id,),
+    ).fetchall()
+    lesson_id_map = {}
+    for lesson in lesson_rows:
+        new_lesson_id = db.execute(
+            '''
+            INSERT INTO module_lessons (module_template_id, title, overview, position)
+            VALUES (?, ?, ?, ?)
+            ''',
+            (new_template_id, lesson['title'], lesson['overview'], lesson['position']),
+        ).lastrowid
+        lesson_id_map[lesson['id']] = new_lesson_id
+
+    item_rows = db.execute(
+        '''
+        SELECT *
+        FROM module_lesson_items
+        WHERE lesson_id IN (
+            SELECT id FROM module_lessons WHERE module_template_id = ?
+        )
+        ORDER BY lesson_id, position, id
+        ''',
+        (source_template_id,),
+    ).fetchall()
+    for item in item_rows:
+        db.execute(
+            '''
+            INSERT INTO module_lesson_items (
+                lesson_id, title, item_type, description, content_text, resource_url, points_possible,
+                quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
+                project_brief, godot_enabled, godot_template_url, position
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                lesson_id_map[item['lesson_id']],
+                item['title'],
+                item['item_type'],
+                item['description'],
+                item['content_text'],
+                item['resource_url'],
+                item['points_possible'],
+                item['quiz_prompt'],
+                item['quiz_questions_json'],
+                item['quiz_max_attempts'],
+                item['quiz_unlimited_attempts'],
+                item['quiz_allow_reassessment'],
+                item['project_brief'],
+                item['godot_enabled'],
+                item['godot_template_url'],
+                item['position'],
+            ),
+        )
+    return new_template_id
+
+
+def create_course_module(db, course_id, template_id, module_title, due_date=None, required=1):
+    next_position = db.execute(
+        'SELECT COALESCE(MAX(position), 0) + 1 AS next_position FROM course_modules WHERE course_id = ?',
+        (course_id,),
+    ).fetchone()['next_position']
+    return db.execute(
+        '''
+        INSERT INTO course_modules (course_id, module_template_id, module_title, position, required, due_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ''',
+        (course_id, template_id, module_title, next_position, required, due_date),
+    ).lastrowid
+
+
+def ensure_private_course_module_templates(db):
+    course_modules = db.execute(
+        '''
+        SELECT cm.id, cm.module_template_id, c.teacher_id, mt.is_reusable
+        FROM course_modules cm
+        JOIN course_offerings c ON c.id = cm.course_id
+        JOIN module_templates mt ON mt.id = cm.module_template_id
+        WHERE COALESCE(mt.is_reusable, 1) = 1
+        ORDER BY cm.id
+        '''
+    ).fetchall()
+    for course_module in course_modules:
+        cloned_template_id = clone_module_template(
+            db,
+            course_module['module_template_id'],
+            course_module['teacher_id'],
+            is_reusable=0,
+        )
+        db.execute(
+            'UPDATE course_modules SET module_template_id = ? WHERE id = ?',
+            (cloned_template_id, course_module['id']),
+        )
+
+
+def get_teacher_course_builder_context(db, course_id, teacher_id):
+    course = db.execute(
+        'SELECT * FROM course_offerings WHERE id = ? AND teacher_id = ?',
+        (course_id, teacher_id),
+    ).fetchone()
+    if not course:
+        return None
+
+    modules = []
+    module_rows = db.execute(
+        '''
+        SELECT cm.*, mt.summary, mt.objectives, mt.lesson_type, mt.created_by, mt.is_reusable
+        FROM course_modules cm
+        JOIN module_templates mt ON mt.id = cm.module_template_id
+        WHERE cm.course_id = ?
+        ORDER BY cm.position, cm.id
+        ''',
+        (course_id,),
+    ).fetchall()
+    for row in module_rows:
+        module = dict(row)
+        module['lessons'] = get_module_lessons(db, module['module_template_id'])
+        module['lesson_count'], module['item_count'], module['points_possible'] = summarize_module_outline(module['lessons'])
+        modules.append(module)
+
+    importable_modules = db.execute(
+        '''
+        SELECT cm.id, cm.module_title, c.title AS course_title
+        FROM course_modules cm
+        JOIN course_offerings c ON c.id = cm.course_id
+        WHERE c.teacher_id = ? AND c.id != ?
+        ORDER BY c.title, cm.position, cm.id
+        ''',
+        (teacher_id, course_id),
+    ).fetchall()
+    reusable_templates = db.execute(
+        '''
+        SELECT mt.id, mt.title,
+               COUNT(DISTINCT ml.id) AS lesson_count,
+               COUNT(mli.id) AS item_count
+        FROM module_templates mt
+        LEFT JOIN module_lessons ml ON ml.module_template_id = mt.id
+        LEFT JOIN module_lesson_items mli ON mli.lesson_id = ml.id
+        WHERE mt.created_by = ? AND COALESCE(mt.is_reusable, 1) = 1
+        GROUP BY mt.id
+        ORDER BY mt.created_at DESC
+        ''',
+        (teacher_id,),
+    ).fetchall()
+
+    return {
+        'course': course,
+        'modules': modules,
+        'importable_modules': importable_modules,
+        'reusable_templates': reusable_templates,
+    }
+
+
+def render_teacher_course_builder(course_id, builder_state=None, form_errors=None, form_values=None, status_code=200):
+    db = get_db()
+    context = get_teacher_course_builder_context(db, course_id, g.user['id'])
+    if not context:
+        db.close()
+        abort(404)
+    db.close()
+    return (
+        render_template(
+            'teacher_course_builder.html',
+            builder_state=builder_state or {},
+            form_errors=form_errors or {},
+            form_values=form_values or {},
+            **context,
+        ),
+        status_code,
+    )
+
+
+def get_course_module_for_teacher(db, course_id, course_module_id, teacher_id):
+    return db.execute(
+        '''
+        SELECT cm.*, mt.summary, mt.objectives
+        FROM course_modules cm
+        JOIN course_offerings c ON c.id = cm.course_id
+        JOIN module_templates mt ON mt.id = cm.module_template_id
+        WHERE cm.id = ? AND cm.course_id = ? AND c.teacher_id = ?
+        ''',
+        (course_module_id, course_id, teacher_id),
+    ).fetchone()
+
+
+def get_module_lesson_for_teacher(db, course_id, course_module_id, lesson_id, teacher_id):
+    return db.execute(
+        '''
+        SELECT ml.*, cm.module_title, cm.module_template_id
+        FROM module_lessons ml
+        JOIN course_modules cm ON cm.module_template_id = ml.module_template_id
+        JOIN course_offerings c ON c.id = cm.course_id
+        WHERE ml.id = ? AND cm.id = ? AND cm.course_id = ? AND c.teacher_id = ?
+        ''',
+        (lesson_id, course_module_id, course_id, teacher_id),
+    ).fetchone()
+
+
+def get_module_lesson_item_for_teacher(db, course_id, course_module_id, lesson_id, item_id, teacher_id):
+    return db.execute(
+        '''
+        SELECT mli.*, ml.module_template_id
+        FROM module_lesson_items mli
+        JOIN module_lessons ml ON ml.id = mli.lesson_id
+        JOIN course_modules cm ON cm.module_template_id = ml.module_template_id
+        JOIN course_offerings c ON c.id = cm.course_id
+        WHERE mli.id = ? AND ml.id = ? AND cm.id = ? AND cm.course_id = ? AND c.teacher_id = ?
+        ''',
+        (item_id, lesson_id, course_module_id, course_id, teacher_id),
+    ).fetchone()
+
+
 @app.before_request
 def load_user():
     g.user = get_current_user()
@@ -708,10 +1224,28 @@ def load_user():
 
 @app.context_processor
 def inject_globals():
+    teacher_sidebar_courses = []
+    active_course_id = None
+    if g.user and g.user['role'] == 'teacher':
+        db = get_db()
+        teacher_sidebar_courses = db.execute(
+            '''
+            SELECT id, title
+            FROM course_offerings
+            WHERE teacher_id = ?
+            ORDER BY created_at DESC
+            ''',
+            (g.user['id'],),
+        ).fetchall()
+        db.close()
+        active_course_id = (request.view_args or {}).get('course_id')
     return {
         'current_user': g.user,
         'godot_editor_url': GODOT_EDITOR_URL,
         'current_year': datetime.utcnow().year,
+        'teacher_sidebar_courses': teacher_sidebar_courses,
+        'active_course_id': active_course_id,
+        'activity_type_label': get_activity_type_label,
     }
 
 
@@ -722,7 +1256,7 @@ def index():
         '''
         SELECT
             (SELECT COUNT(*) FROM course_offerings) AS course_count,
-            (SELECT COUNT(*) FROM module_templates) AS module_count,
+            (SELECT COUNT(*) FROM module_templates WHERE COALESCE(is_reusable, 1) = 1) AS module_count,
             (SELECT COUNT(*) FROM users WHERE role = 'student') AS student_count,
             (SELECT COUNT(*) FROM project_submissions) AS submission_count
         '''
@@ -808,6 +1342,7 @@ def teacher_dashboard():
         LEFT JOIN users u ON u.id = mt.created_by
         LEFT JOIN module_lessons ml ON ml.module_template_id = mt.id
         LEFT JOIN module_lesson_items mli ON mli.lesson_id = ml.id
+        WHERE COALESCE(mt.is_reusable, 1) = 1
         GROUP BY mt.id
         ORDER BY mt.created_at DESC
         '''
@@ -862,12 +1397,13 @@ def create_course():
             (int(template_id),),
         ).fetchone()
         if template:
+            cloned_template_id = clone_module_template(db, template['id'], g.user['id'], is_reusable=0)
             db.execute(
                 '''
                 INSERT INTO course_modules (course_id, module_template_id, module_title, position, required)
                 VALUES (?, ?, ?, ?, 1)
                 ''',
-                (course_id, template['id'], template['title'], position),
+                (course_id, cloned_template_id, template['title'], position),
             )
 
     db.commit()
@@ -893,9 +1429,9 @@ def create_module_template():
         INSERT INTO module_templates (
             title, summary, objectives, lesson_type, content_url, slide_url, godot_template_url,
             activity_video, activity_slides, activity_quiz, activity_project,
-            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_allow_reassessment,
-            project_brief, godot_enabled, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
+            project_brief, godot_enabled, is_reusable, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
         (
             title,
@@ -913,8 +1449,10 @@ def create_module_template():
             '[]',
             1,
             0,
+            0,
             '',
             0,
+            1,
             g.user['id'],
         ),
     ).lastrowid
@@ -1039,21 +1577,23 @@ def add_module_lesson_item(template_id, lesson_id):
     db.execute(
         '''
         INSERT INTO module_lesson_items (
-            lesson_id, title, item_type, description, resource_url, points_possible,
-            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_allow_reassessment,
+            lesson_id, title, item_type, description, content_text, resource_url, points_possible,
+            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
             project_brief, godot_enabled, godot_template_url, position
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''',
         (
             lesson_id,
             title,
             item_type,
             description,
+            '',
             resource_url,
             points_possible,
             quiz_prompt if item_type == 'quiz' else '',
             json.dumps(quiz_questions) if item_type == 'quiz' else '[]',
             quiz_max_attempts if item_type == 'quiz' else 1,
+            0,
             quiz_allow_reassessment if item_type == 'quiz' else 0,
             project_brief if item_type == 'project' else '',
             godot_enabled if item_type == 'project' else 0,
@@ -1124,128 +1664,469 @@ def remove_module_lesson_item(template_id, lesson_id, item_id):
 @app.route('/teacher/course/<int:course_id>')
 @role_required('teacher')
 def teacher_course(course_id):
-    course = get_course_for_teacher(course_id, g.user['id'])
-    if not course:
-        abort(404)
+    panel = request.args.get('panel', '').strip()
+    module_id = request.args.get('module_id', type=int)
+    lesson_id = request.args.get('lesson_id', type=int)
+    activity_id = request.args.get('activity_id', type=int)
+    activity_type = request.args.get('activity_type', '').strip().lower()
+    question_count = max(1, min(request.args.get('question_count', type=int) or 1, 10))
+
+    form_values = {}
+    if panel in {'new-module', 'import-module'}:
+        form_values = {
+            'title': '',
+            'summary': '',
+            'objectives': '',
+            'due_date': '',
+            'source_course_module_id': '',
+            'template_id': '',
+        }
 
     db = get_db()
-    modules = db.execute(
-        '''
-        SELECT cm.*, mt.created_by, mt.summary, mt.objectives, mt.lesson_type, mt.godot_enabled, mt.content_url, mt.slide_url,
-               mt.activity_video, mt.activity_slides, mt.activity_quiz, mt.activity_project,
-               mt.quiz_max_attempts, mt.quiz_allow_reassessment,
-               COUNT(DISTINCT ml.id) AS lesson_count,
-               COUNT(mli.id) AS item_count,
-               COALESCE(SUM(CASE WHEN mli.points_possible IS NOT NULL THEN mli.points_possible ELSE 0 END), 0) AS points_possible
-        FROM course_modules cm
-        JOIN module_templates mt ON mt.id = cm.module_template_id
-        LEFT JOIN module_lessons ml ON ml.module_template_id = mt.id
-        LEFT JOIN module_lesson_items mli ON mli.lesson_id = ml.id
-        WHERE cm.course_id = ?
-        GROUP BY cm.id
-        ORDER BY cm.position, cm.id
-        ''',
-        (course_id,),
-    ).fetchall()
-    templates = db.execute(
-        '''
-        SELECT mt.*,
-               COUNT(DISTINCT ml.id) AS lesson_count,
-               COUNT(mli.id) AS item_count,
-               COALESCE(SUM(CASE WHEN mli.points_possible IS NOT NULL THEN mli.points_possible ELSE 0 END), 0) AS points_possible
-        FROM module_templates mt
-        LEFT JOIN module_lessons ml ON ml.module_template_id = mt.id
-        LEFT JOIN module_lesson_items mli ON mli.lesson_id = ml.id
-        GROUP BY mt.id
-        ORDER BY mt.created_at DESC
-        '''
-    ).fetchall()
-    submissions = db.execute(
-        '''
-        SELECT ps.*, u.name AS student_name, cm.module_title
-        FROM project_submissions ps
-        JOIN users u ON u.id = ps.student_id
-        JOIN course_modules cm ON cm.id = ps.course_module_id
-        WHERE cm.course_id = ?
-        ORDER BY ps.submitted_at DESC
-        ''',
-        (course_id,),
-    ).fetchall()
-    db.close()
-    return render_template(
-        'teacher_course.html',
-        course=course,
-        modules=modules,
-        templates=templates,
-        submissions=submissions,
-    )
-
-
-@app.route('/teacher/course/<int:course_id>/modules/add', methods=['POST'])
-@role_required('teacher')
-def add_module_to_course(course_id):
-    course = get_course_for_teacher(course_id, g.user['id'])
-    if not course:
-        abort(404)
-
-    template_id = request.form.get('module_template_id', type=int)
-    due_date = request.form.get('due_date', '').strip() or None
-    if not template_id:
-        flash('Choose a module template to add.', 'warning')
-        return redirect(url_for('teacher_course', course_id=course_id))
-
-    db = get_db()
-    template = db.execute('SELECT id, title FROM module_templates WHERE id = ?', (template_id,)).fetchone()
-    if not template:
+    course_builder_context = get_teacher_course_builder_context(db, course_id, g.user['id'])
+    if not course_builder_context:
         db.close()
         abort(404)
 
-    next_position = db.execute(
-        'SELECT COALESCE(MAX(position), 0) + 1 AS next_position FROM course_modules WHERE course_id = ?',
-        (course_id,),
-    ).fetchone()['next_position']
+    if panel == 'edit-module' and module_id:
+        module = get_course_module_for_teacher(db, course_id, module_id, g.user['id'])
+        if module:
+            form_values = {
+                'title': module['module_title'],
+                'summary': module['summary'],
+                'objectives': module['objectives'],
+                'due_date': module['due_date'] or '',
+            }
+    elif panel in {'add-lesson', 'edit-lesson'} and module_id:
+        form_values = {'title': '', 'overview': ''}
+        if panel == 'edit-lesson' and lesson_id:
+            lesson = get_module_lesson_for_teacher(db, course_id, module_id, lesson_id, g.user['id'])
+            if lesson:
+                form_values = {'title': lesson['title'], 'overview': lesson['overview']}
+    elif panel in {'choose-activity', 'add-activity'}:
+        form_values = resize_activity_questions(
+            get_default_activity_form(activity_type if activity_type in ACTIVITY_TYPE_LABELS else 'video'),
+            question_count,
+        )
+    elif panel == 'edit-activity' and module_id and lesson_id and activity_id:
+        item = get_module_lesson_item_for_teacher(db, course_id, module_id, lesson_id, activity_id, g.user['id'])
+        if item:
+            form_values = resize_activity_questions(get_activity_form_from_item(item), question_count)
+            activity_type = form_values['activity_type']
 
-    db.execute(
-        '''
-        INSERT INTO course_modules (course_id, module_template_id, module_title, position, required, due_date)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ''',
-        (
+    db.close()
+    return render_template(
+        'teacher_course_builder.html',
+        course=course_builder_context['course'],
+        modules=course_builder_context['modules'],
+        importable_modules=course_builder_context['importable_modules'],
+        reusable_templates=course_builder_context['reusable_templates'],
+        builder_state={
+            'panel': panel,
+            'module_id': module_id,
+            'lesson_id': lesson_id,
+            'activity_id': activity_id,
+            'activity_type': activity_type,
+            'question_count': question_count,
+        },
+        form_errors={},
+        form_values=form_values,
+    )
+
+
+@app.route('/teacher/course/<int:course_id>/modules/create', methods=['POST'])
+@role_required('teacher')
+def create_course_module_builder(course_id):
+    title = request.form.get('title', '').strip()
+    summary = request.form.get('summary', '').strip()
+    objectives = request.form.get('objectives', '').strip()
+    due_date = request.form.get('due_date', '').strip()
+    form_values = {
+        'title': title,
+        'summary': summary,
+        'objectives': objectives,
+        'due_date': due_date,
+    }
+    errors = {}
+    if not title:
+        errors['title'] = 'Module title is required.'
+    if not summary:
+        errors['summary'] = 'Module description is required.'
+    if not objectives:
+        errors['objectives'] = 'Module objectives are required.'
+    if errors:
+        return render_teacher_course_builder(
             course_id,
-            template['id'],
-            template['title'],
-            next_position,
-            1 if request.form.get('required') == 'on' else 0,
-            due_date,
-        ),
+            builder_state={'panel': 'new-module'},
+            form_errors=errors,
+            form_values=form_values,
+            status_code=400,
+        )
+    db = get_db()
+    course = get_course_for_teacher(course_id, g.user['id'])
+    if not course:
+        db.close()
+        abort(404)
+    template_id = db.execute(
+        '''
+        INSERT INTO module_templates (
+            title, summary, objectives, lesson_type, content_url, slide_url, godot_template_url,
+            activity_video, activity_slides, activity_quiz, activity_project,
+            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
+            project_brief, godot_enabled, is_reusable, created_by
+        ) VALUES (?, ?, ?, 'mixed', '', '', '', 0, 0, 0, 0, '', '[]', 1, 0, 0, '', 0, 0, ?)
+        ''',
+        (title, summary, objectives, g.user['id']),
+    ).lastrowid
+    create_course_module(db, course_id, template_id, title, due_date or None, required=1)
+    db.commit()
+    db.close()
+    flash('Module created for this course.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/import', methods=['POST'])
+@role_required('teacher')
+def import_module_to_course(course_id):
+    source_course_module_id = request.form.get('source_course_module_id', type=int)
+    template_id = request.form.get('template_id', type=int)
+    due_date = request.form.get('due_date', '').strip()
+    form_values = {
+        'source_course_module_id': source_course_module_id or '',
+        'template_id': template_id or '',
+        'due_date': due_date,
+    }
+    if not source_course_module_id and not template_id:
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={'panel': 'import-module'},
+            form_errors={'source_course_module_id': 'Choose a course module or reusable unit to copy.'},
+            form_values=form_values,
+            status_code=400,
+        )
+    db = get_db()
+    course = get_course_for_teacher(course_id, g.user['id'])
+    if not course:
+        db.close()
+        abort(404)
+    template = None
+    module_title = None
+    if source_course_module_id:
+        source = db.execute(
+            '''
+            SELECT cm.module_title, cm.module_template_id
+            FROM course_modules cm
+            JOIN course_offerings c ON c.id = cm.course_id
+            WHERE cm.id = ? AND c.teacher_id = ?
+            ''',
+            (source_course_module_id, g.user['id']),
+        ).fetchone()
+        if source:
+            template = db.execute(
+                'SELECT id, title FROM module_templates WHERE id = ?',
+                (source['module_template_id'],),
+            ).fetchone()
+            module_title = source['module_title']
+    elif template_id:
+        template = db.execute(
+            'SELECT id, title FROM module_templates WHERE id = ? AND created_by = ? AND COALESCE(is_reusable, 1) = 1',
+            (template_id, g.user['id']),
+        ).fetchone()
+        module_title = template['title'] if template else None
+    if not template:
+        db.close()
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={'panel': 'import-module'},
+            form_errors={'source_course_module_id': 'The selected module could not be copied.'},
+            form_values=form_values,
+            status_code=404,
+        )
+    cloned_template_id = clone_module_template(db, template['id'], g.user['id'], is_reusable=0)
+    create_course_module(db, course_id, cloned_template_id, module_title or template['title'], due_date or None, required=1)
+    db.commit()
+    db.close()
+    flash('Module copied into this course.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/edit', methods=['POST'])
+@role_required('teacher')
+def update_course_module_builder(course_id, course_module_id):
+    title = request.form.get('title', '').strip()
+    summary = request.form.get('summary', '').strip()
+    objectives = request.form.get('objectives', '').strip()
+    due_date = request.form.get('due_date', '').strip() or None
+    errors = {}
+    if not title:
+        errors['title'] = 'Module title is required.'
+    if not summary:
+        errors['summary'] = 'Module description is required.'
+    if not objectives:
+        errors['objectives'] = 'Module objectives are required.'
+    if errors:
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={'panel': 'edit-module', 'module_id': course_module_id},
+            form_errors=errors,
+            form_values={
+                'title': title,
+                'summary': summary,
+                'objectives': objectives,
+                'due_date': due_date or '',
+            },
+            status_code=400,
+        )
+    db = get_db()
+    module = get_course_module_for_teacher(db, course_id, course_module_id, g.user['id'])
+    if not module:
+        db.close()
+        abort(404)
+    db.execute(
+        'UPDATE course_modules SET module_title = ?, due_date = ? WHERE id = ?',
+        (title, due_date, course_module_id),
+    )
+    db.execute(
+        'UPDATE module_templates SET title = ?, summary = ?, objectives = ? WHERE id = ?',
+        (title, summary, objectives, module['module_template_id']),
     )
     db.commit()
     db.close()
-    flash('Module added to the course.', 'success')
+    flash('Module details updated.', 'success')
     return redirect(url_for('teacher_course', course_id=course_id))
 
 
 @app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/remove', methods=['POST'])
 @role_required('teacher')
 def remove_module_from_course(course_id, course_module_id):
-    course = get_course_for_teacher(course_id, g.user['id'])
-    if not course:
-        abort(404)
-
     db = get_db()
-    db.execute(
-        'DELETE FROM course_modules WHERE id = ? AND course_id = ?',
-        (course_module_id, course_id),
-    )
-    remaining_modules = db.execute(
-        'SELECT id FROM course_modules WHERE course_id = ? ORDER BY position, id',
-        (course_id,),
-    ).fetchall()
-    for position, module in enumerate(remaining_modules, start=1):
-        db.execute('UPDATE course_modules SET position = ? WHERE id = ?', (position, module['id']))
+    module = get_course_module_for_teacher(db, course_id, course_module_id, g.user['id'])
+    if not module:
+        db.close()
+        abort(404)
+    db.execute('DELETE FROM course_modules WHERE id = ? AND course_id = ?', (course_module_id, course_id))
+    resequence_rows(db, 'course_modules', 'course_id', course_id)
+    remaining_links = db.execute(
+        'SELECT COUNT(*) AS count FROM course_modules WHERE module_template_id = ?',
+        (module['module_template_id'],),
+    ).fetchone()['count']
+    if remaining_links == 0:
+        db.execute(
+            'DELETE FROM module_templates WHERE id = ? AND COALESCE(is_reusable, 1) = 0',
+            (module['module_template_id'],),
+        )
     db.commit()
     db.close()
-    flash('Module removed from the course.', 'success')
+    flash('Module deleted from the course.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/lessons/create', methods=['POST'])
+@role_required('teacher')
+def add_course_module_lesson(course_id, course_module_id):
+    title = request.form.get('title', '').strip()
+    overview = request.form.get('overview', '').strip()
+    if not title:
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={'panel': 'add-lesson', 'module_id': course_module_id},
+            form_errors={'title': 'Lesson title is required.'},
+            form_values={'title': title, 'overview': overview},
+            status_code=400,
+        )
+    db = get_db()
+    module = get_course_module_for_teacher(db, course_id, course_module_id, g.user['id'])
+    if not module:
+        db.close()
+        abort(404)
+    next_position = db.execute(
+        'SELECT COALESCE(MAX(position), 0) + 1 AS next_position FROM module_lessons WHERE module_template_id = ?',
+        (module['module_template_id'],),
+    ).fetchone()['next_position']
+    db.execute(
+        'INSERT INTO module_lessons (module_template_id, title, overview, position) VALUES (?, ?, ?, ?)',
+        (module['module_template_id'], title, overview, next_position),
+    )
+    db.commit()
+    db.close()
+    flash('Lesson added.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/lessons/<int:lesson_id>/edit', methods=['POST'])
+@role_required('teacher')
+def update_course_module_lesson(course_id, course_module_id, lesson_id):
+    title = request.form.get('title', '').strip()
+    overview = request.form.get('overview', '').strip()
+    if not title:
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={'panel': 'edit-lesson', 'module_id': course_module_id, 'lesson_id': lesson_id},
+            form_errors={'title': 'Lesson title is required.'},
+            form_values={'title': title, 'overview': overview},
+            status_code=400,
+        )
+    db = get_db()
+    lesson = get_module_lesson_for_teacher(db, course_id, course_module_id, lesson_id, g.user['id'])
+    if not lesson:
+        db.close()
+        abort(404)
+    db.execute('UPDATE module_lessons SET title = ?, overview = ? WHERE id = ?', (title, overview, lesson_id))
+    db.commit()
+    db.close()
+    flash('Lesson updated.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/lessons/<int:lesson_id>/remove', methods=['POST'])
+@role_required('teacher')
+def remove_course_module_lesson(course_id, course_module_id, lesson_id):
+    db = get_db()
+    lesson = get_module_lesson_for_teacher(db, course_id, course_module_id, lesson_id, g.user['id'])
+    if not lesson:
+        db.close()
+        abort(404)
+    db.execute('DELETE FROM module_lessons WHERE id = ?', (lesson_id,))
+    resequence_rows(db, 'module_lessons', 'module_template_id', lesson['module_template_id'])
+    sync_module_template_from_outline(db, lesson['module_template_id'])
+    db.commit()
+    db.close()
+    flash('Lesson deleted.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/lessons/<int:lesson_id>/activities/create', methods=['POST'])
+@role_required('teacher')
+def add_course_module_activity(course_id, course_module_id, lesson_id):
+    cleaned, form_values, errors = validate_activity_form(request.form)
+    if errors:
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={
+                'panel': 'add-activity',
+                'module_id': course_module_id,
+                'lesson_id': lesson_id,
+                'activity_type': form_values['activity_type'],
+                'question_count': form_values['question_count'],
+            },
+            form_errors=errors,
+            form_values=form_values,
+            status_code=400,
+        )
+    db = get_db()
+    lesson = get_module_lesson_for_teacher(db, course_id, course_module_id, lesson_id, g.user['id'])
+    if not lesson:
+        db.close()
+        abort(404)
+    next_position = db.execute(
+        'SELECT COALESCE(MAX(position), 0) + 1 AS next_position FROM module_lesson_items WHERE lesson_id = ?',
+        (lesson_id,),
+    ).fetchone()['next_position']
+    db.execute(
+        '''
+        INSERT INTO module_lesson_items (
+            lesson_id, title, item_type, description, content_text, resource_url, points_possible,
+            quiz_prompt, quiz_questions_json, quiz_max_attempts, quiz_unlimited_attempts, quiz_allow_reassessment,
+            project_brief, godot_enabled, godot_template_url, position
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''',
+        (
+            lesson_id,
+            cleaned['title'],
+            cleaned['item_type'],
+            cleaned['description'],
+            cleaned['content_text'],
+            cleaned['resource_url'],
+            cleaned['points_possible'],
+            cleaned['quiz_prompt'],
+            cleaned['quiz_questions_json'],
+            cleaned['quiz_max_attempts'],
+            cleaned['quiz_unlimited_attempts'],
+            cleaned['quiz_allow_reassessment'],
+            cleaned['project_brief'],
+            cleaned['godot_enabled'],
+            cleaned['godot_template_url'],
+            next_position,
+        ),
+    )
+    sync_module_template_from_outline(db, lesson['module_template_id'])
+    db.commit()
+    db.close()
+    flash('Activity added.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/lessons/<int:lesson_id>/activities/<int:item_id>/edit', methods=['POST'])
+@role_required('teacher')
+def update_course_module_activity(course_id, course_module_id, lesson_id, item_id):
+    cleaned, form_values, errors = validate_activity_form(request.form)
+    if errors:
+        return render_teacher_course_builder(
+            course_id,
+            builder_state={
+                'panel': 'edit-activity',
+                'module_id': course_module_id,
+                'lesson_id': lesson_id,
+                'activity_id': item_id,
+                'activity_type': form_values['activity_type'],
+                'question_count': form_values['question_count'],
+            },
+            form_errors=errors,
+            form_values=form_values,
+            status_code=400,
+        )
+    db = get_db()
+    item = get_module_lesson_item_for_teacher(db, course_id, course_module_id, lesson_id, item_id, g.user['id'])
+    if not item:
+        db.close()
+        abort(404)
+    db.execute(
+        '''
+        UPDATE module_lesson_items
+        SET title = ?, item_type = ?, description = ?, content_text = ?, resource_url = ?, points_possible = ?,
+            quiz_prompt = ?, quiz_questions_json = ?, quiz_max_attempts = ?, quiz_unlimited_attempts = ?,
+            quiz_allow_reassessment = ?, project_brief = ?, godot_enabled = ?, godot_template_url = ?
+        WHERE id = ?
+        ''',
+        (
+            cleaned['title'],
+            cleaned['item_type'],
+            cleaned['description'],
+            cleaned['content_text'],
+            cleaned['resource_url'],
+            cleaned['points_possible'],
+            cleaned['quiz_prompt'],
+            cleaned['quiz_questions_json'],
+            cleaned['quiz_max_attempts'],
+            cleaned['quiz_unlimited_attempts'],
+            cleaned['quiz_allow_reassessment'],
+            cleaned['project_brief'],
+            cleaned['godot_enabled'],
+            cleaned['godot_template_url'],
+            item_id,
+        ),
+    )
+    sync_module_template_from_outline(db, item['module_template_id'])
+    db.commit()
+    db.close()
+    flash('Activity updated.', 'success')
+    return redirect(url_for('teacher_course', course_id=course_id))
+
+
+@app.route('/teacher/course/<int:course_id>/modules/<int:course_module_id>/lessons/<int:lesson_id>/activities/<int:item_id>/remove', methods=['POST'])
+@role_required('teacher')
+def remove_course_module_activity(course_id, course_module_id, lesson_id, item_id):
+    db = get_db()
+    item = get_module_lesson_item_for_teacher(db, course_id, course_module_id, lesson_id, item_id, g.user['id'])
+    if not item:
+        db.close()
+        abort(404)
+    db.execute('DELETE FROM module_lesson_items WHERE id = ?', (item_id,))
+    resequence_rows(db, 'module_lesson_items', 'lesson_id', lesson_id)
+    sync_module_template_from_outline(db, item['module_template_id'])
+    db.commit()
+    db.close()
+    flash('Activity deleted.', 'success')
     return redirect(url_for('teacher_course', course_id=course_id))
 
 
@@ -1412,6 +2293,7 @@ def submit_quiz(course_id, course_module_id):
     module = db.execute(
         '''
         SELECT cm.id, mt.quiz_questions_json, mt.activity_quiz, mt.quiz_max_attempts, mt.quiz_allow_reassessment
+               , mt.quiz_unlimited_attempts
         FROM course_modules cm
         JOIN module_templates mt ON mt.id = cm.module_template_id
         WHERE cm.id = ? AND cm.course_id = ?
@@ -1433,7 +2315,7 @@ def submit_quiz(course_id, course_module_id):
         (course_module_id, g.user['id']),
     ).fetchone()['count']
     max_attempts = module['quiz_max_attempts'] + (1 if module['quiz_allow_reassessment'] else 0)
-    if attempt_count >= max_attempts:
+    if not module['quiz_unlimited_attempts'] and attempt_count >= max_attempts:
         db.close()
         flash('No quiz attempts remaining for this module.', 'warning')
         return redirect(url_for('module_detail', course_id=course_id, course_module_id=course_module_id))
@@ -1564,7 +2446,7 @@ def module_detail(course_id, course_module_id):
         '''
         SELECT cm.*, mt.created_by, mt.summary, mt.objectives, mt.lesson_type, mt.content_url, mt.slide_url,
                mt.godot_template_url, mt.activity_video, mt.activity_slides, mt.activity_quiz, mt.activity_project,
-               mt.quiz_prompt, mt.quiz_questions_json, mt.quiz_max_attempts, mt.quiz_allow_reassessment,
+               mt.quiz_prompt, mt.quiz_questions_json, mt.quiz_max_attempts, mt.quiz_unlimited_attempts, mt.quiz_allow_reassessment,
                mt.project_brief, mt.godot_enabled
         FROM course_modules cm
         JOIN module_templates mt ON mt.id = cm.module_template_id
@@ -1583,7 +2465,7 @@ def module_detail(course_id, course_module_id):
     quiz_questions = load_quiz_questions(module['quiz_questions_json'])
     student_quiz_attempts = []
     teacher_quiz_attempts = []
-    quiz_attempts_remaining = module['quiz_max_attempts'] + (1 if module['quiz_allow_reassessment'] else 0)
+    quiz_attempts_remaining = None if module['quiz_unlimited_attempts'] else module['quiz_max_attempts'] + (1 if module['quiz_allow_reassessment'] else 0)
     if g.user['role'] == 'student':
         student_submission = db.execute(
             '''
@@ -1601,7 +2483,8 @@ def module_detail(course_id, course_module_id):
             ''',
             (course_module_id, g.user['id']),
         ).fetchall()
-        quiz_attempts_remaining = max(0, quiz_attempts_remaining - len(student_quiz_attempts))
+        if quiz_attempts_remaining is not None:
+            quiz_attempts_remaining = max(0, quiz_attempts_remaining - len(student_quiz_attempts))
     else:
         submissions = db.execute(
             '''

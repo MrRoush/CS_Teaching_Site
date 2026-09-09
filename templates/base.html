@@ -40,7 +40,38 @@
                     </div>
                 {% endif %}
             {% endwith %}
+            {% if current_user and current_user.role == 'teacher' %}
+                <div class="teacher-shell">
+                    <aside class="teacher-sidebar" aria-label="Teacher navigation">
+                        <div class="teacher-sidebar-card">
+                            <p class="eyebrow">Teacher space</p>
+                            <h2>Teaching Studio</h2>
+                            <div class="sidebar-link-stack">
+                                <a href="{{ url_for('teacher_dashboard') }}" class="sidebar-link {% if request.endpoint == 'teacher_dashboard' %}sidebar-link-active{% endif %}">Dashboard</a>
+                                {% if active_course_id %}
+                                    <a href="{{ url_for('teacher_course', course_id=active_course_id) }}" class="sidebar-link {% if request.endpoint == 'teacher_course' %}sidebar-link-active{% endif %}">Course Builder</a>
+                                    <a href="{{ url_for('teacher_gradebook', course_id=active_course_id) }}" class="sidebar-link {% if request.endpoint == 'teacher_gradebook' %}sidebar-link-active{% endif %}">Gradebook</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="teacher-sidebar-card">
+                            <p class="eyebrow">Your classes</p>
+                            <div class="sidebar-link-stack">
+                                {% for sidebar_course in teacher_sidebar_courses %}
+                                    <a href="{{ url_for('teacher_course', course_id=sidebar_course.id) }}" class="sidebar-link {% if active_course_id == sidebar_course.id %}sidebar-link-active{% endif %}">{{ sidebar_course.title }}</a>
+                                {% else %}
+                                    <p class="muted">No classes yet.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </aside>
+                    <div class="teacher-main">
+            {% endif %}
             {% block content %}{% endblock %}
+            {% if current_user and current_user.role == 'teacher' %}
+                    </div>
+                </div>
+            {% endif %}
         </div>
     </main>
 

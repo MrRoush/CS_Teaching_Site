@@ -30,11 +30,15 @@
                     </div>
                     <p>{{ module.summary }}</p>
                     <p class="muted"><strong>Objectives:</strong> {{ module.objectives }}</p>
+                    <p class="muted">{{ module.lesson_count }} lesson{% if module.lesson_count != 1 %}s{% endif %} · {{ module.item_count }} activity piece{% if module.item_count != 1 %}s{% endif %}{% if module.points_possible %} · {{ module.points_possible }} pts{% endif %}</p>
                     {% if module.due_date %}
                         <p class="muted"><strong>Due date:</strong> {{ module.due_date }}</p>
                     {% endif %}
                     <div class="module-actions">
                         <a href="{{ url_for('module_detail', course_id=course.id, course_module_id=module.id) }}" class="btn btn-secondary">Open module</a>
+                        {% if module.created_by == current_user.id %}
+                            <a href="{{ url_for('module_template_builder', template_id=module.module_template_id) }}" class="btn btn-secondary">Edit template</a>
+                        {% endif %}
                         <form method="post" action="{{ url_for('remove_module_from_course', course_id=course.id, course_module_id=module.id) }}">
                             <button type="submit" class="btn btn-danger">Remove</button>
                         </form>
@@ -58,7 +62,7 @@
             <select id="module_template_id" name="module_template_id" required>
                 <option value="">Choose a module</option>
                 {% for template in templates %}
-                    <option value="{{ template.id }}">{{ template.title }} — {{ template.summary }}</option>
+                    <option value="{{ template.id }}">{{ template.title }} — {{ template.lesson_count }} lessons / {{ template.item_count }} pieces</option>
                 {% endfor %}
             </select>
 

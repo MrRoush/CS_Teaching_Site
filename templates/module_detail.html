@@ -9,50 +9,82 @@
         <h1>{{ module.module_title }}</h1>
         <p class="lead">{{ module.summary }}</p>
         <p class="muted"><strong>Objectives:</strong> {{ module.objectives }}</p>
+        <p class="muted">{{ lesson_count }} lesson{% if lesson_count != 1 %}s{% endif %} · {{ item_count }} activity piece{% if item_count != 1 %}s{% endif %}{% if points_possible %} · {{ points_possible }} pts{% endif %}</p>
         {% if module.due_date %}
             <p class="muted"><strong>Due date:</strong> {{ module.due_date }}</p>
+        {% endif %}
+        {% if current_user.role == 'teacher' and module.created_by == current_user.id %}
+            <div class="module-actions">
+                <a href="{{ url_for('module_template_builder', template_id=module.module_template_id) }}" class="btn btn-secondary">Edit unit builder</a>
+            </div>
         {% endif %}
     </div>
 </section>
 
 <section class="grid-two dashboard-grid">
     <article class="panel lesson-panel">
-        <h2>Instructional content</h2>
-        <div class="resource-stack">
-            {% if module.activity_video and module.content_url %}
-                <div>
-                    <p class="resource-label">Lesson resource</p>
-                    <div class="embed-shell">
-                        <iframe src="{{ module.content_url }}" title="Lesson content" allowfullscreen loading="lazy"></iframe>
+        <h2>Unit outline</h2>
+        <div class="lesson-outline">
+            {% for lesson in lessons %}
+                <article class="lesson-outline-card">
+                    <p class="eyebrow">Lesson {{ lesson.position }}</p>
+                    <h3>{{ lesson.title }}</h3>
+                    {% if lesson.overview %}
+                        <p>{{ lesson.overview }}</p>
+                    {% endif %}
+                    <div class="lesson-piece-list">
+                        {% for item in lesson.items %}
+                            <div class="outline-item">
+                                <div class="module-card-top">
+                                    <div>
+                                        <p class="resource-label">{{ item.title }}</p>
+                                        <p class="muted">{{ item.item_type|replace('_', ' ') }}</p>
+                                    </div>
+                                    {% if item.points_possible is not none %}
+                                        <span class="status status-neutral">{{ item.points_possible }} pts</span>
+                                    {% endif %}
+                                </div>
+                                {% if item.description %}
+                                    <p>{{ item.description }}</p>
+                                {% endif %}
+                                {% if item.item_type == 'video' and item.resource_url %}
+                                    <div class="embed-shell">
+                                        <iframe src="{{ item.resource_url }}" title="{{ item.title }}" allowfullscreen loading="lazy"></iframe>
+                                    </div>
+                                {% elif item.resource_url %}
+                                    <a href="{{ item.resource_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open resource</a>
+                                {% endif %}
+                                {% if item.item_type == 'quiz' and item.quiz_prompt %}
+                                    <p class="muted"><strong>Quiz prompt:</strong> {{ item.quiz_prompt }}</p>
+                                {% endif %}
+                                {% if item.item_type == 'project' and item.project_brief %}
+                                    <p class="muted"><strong>Project brief:</strong> {{ item.project_brief }}</p>
+                                {% endif %}
+                                {% if item.item_type == 'project' and item.godot_template_url %}
+                                    <p><a href="{{ item.godot_template_url }}" target="_blank" rel="noopener noreferrer">Open starter template</a></p>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <p class="muted">No activity pieces in this lesson yet.</p>
+                        {% endfor %}
                     </div>
-                </div>
-            {% endif %}
-
-            {% if module.activity_slides and module.slide_url %}
-                <div>
-                    <p class="resource-label">Slide deck</p>
-                    <a href="{{ module.slide_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open slides</a>
-                </div>
-            {% endif %}
-
-            {% if module.activity_quiz %}
-                <div>
-                    <p class="resource-label">Check for understanding</p>
-                    <p>{{ module.quiz_prompt }}</p>
-                </div>
-            {% endif %}
-
-            {% if module.activity_project %}
-                <div>
-                    <p class="resource-label">Project brief</p>
-                    <p>{{ module.project_brief }}</p>
-                </div>
-            {% endif %}
+                </article>
+            {% else %}
+                <p>No lessons configured for this unit yet.</p>
+            {% endfor %}
         </div>
     </article>
 
     <article class="panel lesson-panel">
-        <h2>Godot workflow</h2>
+        <h2>Assignment details</h2>
+        <div class="resource-stack">
+            <div class="callout">
+                <p><strong>Lessons:</strong> {{ lesson_count }}</p>
+                <p><strong>Activity pieces:</strong> {{ item_count }}</p>
+                <p><strong>Points possible:</strong> {{ points_possible if points_possible else 'Teacher defined' }}</p>
+            </div>
+        </div>
+        <h3>Godot workflow</h3>
         {% if module.godot_enabled %}
             <p class="muted">Launch the online editor in a new tab, or try the embedded preview if your browser allows it.</p>
             <div class="module-actions">

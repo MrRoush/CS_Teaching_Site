@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}{{ template.title }} · Unit Builder{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <p class="eyebrow">Unit builder</p>
+        <h1>{{ template.title }}</h1>
+        <p class="lead">{{ template.summary }}</p>
+        <p class="muted"><strong>Objectives:</strong> {{ template.objectives }}</p>
+        <p class="muted">{{ lesson_count }} lesson{% if lesson_count != 1 %}s{% endif %} · {{ item_count }} activity piece{% if item_count != 1 %}s{% endif %}{% if points_possible %} · {{ points_possible }} pts{% endif %}</p>
+        <div class="module-actions">
+            <a href="{{ url_for('teacher_dashboard') }}" class="btn btn-secondary">Back to dashboard</a>
+        </div>
+    </div>
+</section>
+
+<section class="grid-two dashboard-grid">
+    <article class="panel">
+        <h2>Add a lesson</h2>
+        <form method="post" action="{{ url_for('add_module_lesson', template_id=template.id) }}" class="stack-form">
+            <label for="lesson-title">Lesson title</label>
+            <input id="lesson-title" name="title" type="text" placeholder="Lesson 1: Navigation" required>
+
+            <label for="lesson-overview">Lesson overview</label>
+            <textarea id="lesson-overview" name="overview" rows="3" placeholder="What students should learn in this lesson"></textarea>
+
+            <button type="submit" class="btn btn-primary">Add lesson</button>
+        </form>
+    </article>
+
+    <article class="panel">
+        <h2>Builder notes</h2>
+        <ul class="feature-list compact muted-list">
+            <li>Add lessons first, then add each video, resource, slide deck, quiz, or project one piece at a time.</li>
+            <li>Due dates are still set when the unit is assigned to a course.</li>
+            <li>The first quiz and first project in the outline power the current graded student workflows.</li>
+            <li>Use points to communicate grading weight for quizzes and projects.</li>
+        </ul>
+    </article>
+</section>
+
+<section class="panel">
+    <h2>Unit outline</h2>
+    <div class="lesson-outline">
+        {% for lesson in lessons %}
+            <article class="lesson-outline-card">
+                <div class="module-card-top">
+                    <div>
+                        <p class="eyebrow">Lesson {{ lesson.position }}</p>
+                        <h3>{{ lesson.title }}</h3>
+                        {% if lesson.overview %}
+                            <p>{{ lesson.overview }}</p>
+                        {% endif %}
+                    </div>
+                    <form method="post" action="{{ url_for('remove_module_lesson', template_id=template.id, lesson_id=lesson.id) }}">
+                        <button type="submit" class="btn btn-danger">Remove lesson</button>
+                    </form>
+                </div>
+
+                <div class="lesson-piece-list">
+                    {% for item in lesson.items %}
+                        <div class="outline-item">
+                            <div class="module-card-top">
+                                <div>
+                                    <p class="eyebrow">{{ item.item_type|replace('_', ' ') }}</p>
+                                    <h4>{{ item.title }}</h4>
+                                </div>
+                                <div class="module-actions">
+                                    {% if item.points_possible is not none %}
+                                        <span class="status status-neutral">{{ item.points_possible }} pts</span>
+                                    {% endif %}
+                                    <form method="post" action="{{ url_for('remove_module_lesson_item', template_id=template.id, lesson_id=lesson.id, item_id=item.id) }}">
+                                        <button type="submit" class="btn btn-danger">Remove</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% if item.description %}
+                                <p>{{ item.description }}</p>
+                            {% endif %}
+                            {% if item.quiz_prompt %}
+                                <p class="muted"><strong>Quiz prompt:</strong> {{ item.quiz_prompt }}</p>
+                            {% endif %}
+                            {% if item.project_brief %}
+                                <p class="muted"><strong>Project brief:</strong> {{ item.project_brief }}</p>
+                            {% endif %}
+                            {% if item.resource_url %}
+                                <p><a href="{{ item.resource_url }}" target="_blank" rel="noopener noreferrer">Open resource</a></p>
+                            {% endif %}
+                            {% if item.godot_enabled %}
+                                <p class="muted">Includes Godot launch support.</p>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <p class="muted">No activity pieces in this lesson yet.</p>
+                    {% endfor %}
+                </div>
+
+                <form method="post" action="{{ url_for('add_module_lesson_item', template_id=template.id, lesson_id=lesson.id) }}" class="stack-form builder-form">
+                    <label for="item-title-{{ lesson.id }}">Activity title</label>
+                    <input id="item-title-{{ lesson.id }}" name="title" type="text" placeholder="Video lesson" required>
+
+                    <label for="item-type-{{ lesson.id }}">Activity type</label>
+                    <select id="item-type-{{ lesson.id }}" name="item_type" required>
+                        <option value="video">Video lesson</option>
+                        <option value="resource">Written resource</option>
+                        <option value="slides">Slides / PowerPoint</option>
+                        <option value="quiz">Quiz</option>
+                        <option value="project">Project</option>
+                    </select>
+
+                    <label for="item-description-{{ lesson.id }}">Description or instructions</label>
+                    <textarea id="item-description-{{ lesson.id }}" name="description" rows="3" placeholder="How this activity fits into the lesson"></textarea>
+
+                    <label for="item-resource-{{ lesson.id }}">Resource URL</label>
+                    <input id="item-resource-{{ lesson.id }}" name="resource_url" type="url" placeholder="https://...">
+
+                    <label for="item-points-{{ lesson.id }}">Points possible</label>
+                    <input id="item-points-{{ lesson.id }}" name="points_possible" type="number" min="0" placeholder="Optional">
+
+                    <fieldset>
+                        <legend>Quiz details</legend>
+                        <label for="quiz-prompt-{{ lesson.id }}">Quiz prompt</label>
+                        <textarea id="quiz-prompt-{{ lesson.id }}" name="quiz_prompt" rows="2" placeholder="Quick check for understanding"></textarea>
+
+                        <label for="quiz-questions-{{ lesson.id }}">Quiz questions</label>
+                        <textarea id="quiz-questions-{{ lesson.id }}" name="quiz_questions" rows="4" placeholder="mcq|Question text|Option A|Option B|Option C|Option D|A&#10;short|Question text"></textarea>
+                        <p class="muted">MCQ format: mcq|question|A|B|C|D|CorrectLetter. Short answer format: short|question.</p>
+
+                        <label for="quiz-max-attempts-{{ lesson.id }}">Quiz attempts</label>
+                        <input id="quiz-max-attempts-{{ lesson.id }}" name="quiz_max_attempts" type="number" min="1" max="10" value="1">
+
+                        <label class="checkbox-inline">
+                            <input type="checkbox" name="quiz_allow_reassessment">
+                            <span>Allow one reassessment attempt</span>
+                        </label>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Project details</legend>
+                        <label for="project-brief-{{ lesson.id }}">Project brief</label>
+                        <textarea id="project-brief-{{ lesson.id }}" name="project_brief" rows="3" placeholder="What students should build or submit"></textarea>
+
+                        <label for="godot-template-{{ lesson.id }}">Godot starter template URL</label>
+                        <input id="godot-template-{{ lesson.id }}" name="godot_template_url" type="url" placeholder="https://github.com/...">
+
+                        <label class="checkbox-inline">
+                            <input type="checkbox" name="godot_enabled">
+                            <span>Include Godot editor launch support</span>
+                        </label>
+                    </fieldset>
+
+                    <button type="submit" class="btn btn-secondary">Add activity piece</button>
+                </form>
+            </article>
+        {% else %}
+            <p>No lessons yet. Add the first lesson to start the unit.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -598,7 +598,7 @@ def grade_submission(submission_id):
     db = get_db()
     submission = db.execute(
         '''
-        SELECT ps.id
+        SELECT ps.id, c.id AS course_id
         FROM project_submissions ps
         JOIN course_modules cm ON cm.id = ps.course_module_id
         JOIN course_offerings c ON c.id = cm.course_id
@@ -627,7 +627,7 @@ def grade_submission(submission_id):
     db.commit()
     db.close()
     flash('Submission updated.', 'success')
-    return redirect(request.referrer or url_for('teacher_dashboard'))
+    return redirect(url_for('teacher_course', course_id=submission['course_id']))
 
 
 @app.route('/student')

@@ -8,6 +8,10 @@
         <p class="eyebrow">{{ course.title }}</p>
         <h1>{{ module.module_title }}</h1>
         <p class="lead">{{ module.summary }}</p>
+        <p class="muted"><strong>Objectives:</strong> {{ module.objectives }}</p>
+        {% if module.due_date %}
+            <p class="muted"><strong>Due date:</strong> {{ module.due_date }}</p>
+        {% endif %}
     </div>
 </section>
 
@@ -15,7 +19,7 @@
     <article class="panel lesson-panel">
         <h2>Instructional content</h2>
         <div class="resource-stack">
-            {% if module.content_url %}
+            {% if module.activity_video and module.content_url %}
                 <div>
                     <p class="resource-label">Lesson resource</p>
                     <div class="embed-shell">
@@ -24,22 +28,26 @@
                 </div>
             {% endif %}
 
-            {% if module.slide_url %}
+            {% if module.activity_slides and module.slide_url %}
                 <div>
                     <p class="resource-label">Slide deck</p>
                     <a href="{{ module.slide_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open slides</a>
                 </div>
             {% endif %}
 
-            <div>
-                <p class="resource-label">Check for understanding</p>
-                <p>{{ module.quiz_prompt }}</p>
-            </div>
+            {% if module.activity_quiz %}
+                <div>
+                    <p class="resource-label">Check for understanding</p>
+                    <p>{{ module.quiz_prompt }}</p>
+                </div>
+            {% endif %}
 
-            <div>
-                <p class="resource-label">Project brief</p>
-                <p>{{ module.project_brief }}</p>
-            </div>
+            {% if module.activity_project %}
+                <div>
+                    <p class="resource-label">Project brief</p>
+                    <p>{{ module.project_brief }}</p>
+                </div>
+            {% endif %}
         </div>
     </article>
 
@@ -49,6 +57,9 @@
             <p class="muted">Launch the online editor in a new tab, or try the embedded preview if your browser allows it.</p>
             <div class="module-actions">
                 <a href="{{ godot_editor_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Open Godot 4.7.2</a>
+                {% if module.godot_template_url %}
+                    <a href="{{ module.godot_template_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Open starter template</a>
+                {% endif %}
             </div>
             <div class="embed-shell tall-frame">
                 <iframe src="{{ godot_editor_url }}" title="Godot editor preview" loading="lazy"></iframe>
@@ -59,7 +70,72 @@
     </article>
 </section>
 
+{% if module.activity_quiz %}
+<section class="panel">
+    <h2>Quiz</h2>
+    {% if current_user.role == 'student' %}
+        <p class="muted">Attempts remaining: {{ quiz_attempts_remaining }}</p>
+        {% if quiz_questions and quiz_attempts_remaining > 0 %}
+            <form method="post" action="{{ url_for('submit_quiz', course_id=course.id, course_module_id=module.id) }}" class="stack-form">
+                {% for question in quiz_questions %}
+                    <fieldset>
+                        <legend>Question {{ loop.index }}</legend>
+                        <p>{{ question.question }}</p>
+                        {% if question.type == 'mcq' %}
+                            <select name="quiz_q_{{ loop.index0 }}" required>
+                                <option value="">Select an answer</option>
+                                {% for option in question.options %}
+                                    <option value="{{ ['A','B','C','D'][loop.index0] }}">{{ ['A','B','C','D'][loop.index0] }}. {{ option }}</option>
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            <textarea name="quiz_q_{{ loop.index0 }}" rows="3" required></textarea>
+                        {% endif %}
+                    </fieldset>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Submit quiz attempt</button>
+            </form>
+        {% else %}
+            <p>No quiz questions configured or no attempts remaining.</p>
+        {% endif %}
+
+        <div class="resource-stack">
+            {% for attempt in student_quiz_attempts %}
+                <article class="submission-card">
+                    <h3>Attempt {{ attempt.attempt_number }}</h3>
+                    <p><strong>Score:</strong> {{ attempt.score if attempt.score is not none else 'Pending review' }}</p>
+                    {% if attempt.feedback %}
+                        <p><strong>Teacher comments:</strong> {{ attempt.feedback }}</p>
+                    {% endif %}
+                </article>
+            {% else %}
+                <p>No quiz attempts yet.</p>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="resource-stack">
+            {% for attempt in teacher_quiz_attempts %}
+                <article class="submission-card">
+                    <h3>{{ attempt.student_name }} · Attempt {{ attempt.attempt_number }}</h3>
+                    <p><strong>Responses:</strong> {{ attempt.responses }}</p>
+                    <form method="post" action="{{ url_for('grade_quiz_attempt', attempt_id=attempt.id) }}" class="stack-form">
+                        <label>Score</label>
+                        <input type="number" name="score" min="0" max="100" value="{{ attempt.score if attempt.score is not none else '' }}">
+                        <label>Comments</label>
+                        <textarea name="feedback" rows="2">{{ attempt.feedback or '' }}</textarea>
+                        <button type="submit" class="btn btn-secondary">Save quiz review</button>
+                    </form>
+                </article>
+            {% else %}
+                <p>No quiz attempts yet.</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endif %}
+
 {% if current_user.role == 'student' %}
+{% if module.activity_project %}
 <section class="panel">
     <h2>Submit your project</h2>
     {% if student_submission %}
@@ -84,6 +160,7 @@
         <button type="submit" class="btn btn-primary">Submit project</button>
     </form>
 </section>
+{% endif %}
 {% else %}
 <section class="panel">
     <h2>Teacher review view</h2>

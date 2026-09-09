@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.title }} Gradebook{% endblock %}
+
+{% block content %}
+<section class="dashboard-header">
+    <div>
+        <p class="eyebrow">Gradebook</p>
+        <h1>{{ course.title }}</h1>
+        <p class="lead">Track project and quiz scores by student and assignment.</p>
+        <a href="{{ url_for('teacher_course', course_id=course.id) }}" class="btn btn-secondary">Back to course</a>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="gradebook-scroll">
+        <table class="gradebook-table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    {% for module in modules %}
+                        <th>
+                            {{ module.module_title }}<br>
+                            <span class="muted">{{ module.due_date or 'No due date' }}</span>
+                        </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in grade_rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.student.name }}</strong><br>
+                            <span class="muted">{{ row.student.email }}</span>
+                        </td>
+                        {% for assignment in row.assignments %}
+                            <td>
+                                <p>Project: {{ assignment.project_score if assignment.project_score is not none else '—' }}</p>
+                                <p>Quiz: {{ assignment.quiz_score if assignment.quiz_score is not none else '—' }}</p>
+                                <a href="{{ url_for('module_detail', course_id=course.id, course_module_id=assignment.module_id) }}">Grade assignment</a>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="{{ modules|length + 1 }}">No enrolled students yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

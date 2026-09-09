@@ -4,12 +4,12 @@
 
 {% block content %}
 <section class="panel narrow-panel">
-    <p class="eyebrow">Prototype access</p>
-    <h1>Demo sign-in</h1>
-    <p class="lead">Use a seeded account to review the teacher and student flows. For production, replace this page with Google Workspace OAuth and school-managed account provisioning.</p>
+    <p class="eyebrow">Account access</p>
+    <h1>Sign in</h1>
+    <p class="lead">Choose an account to enter the teaching or student experience.</p>
 
     <form method="post" class="stack-form">
-        <label for="user_id">Choose a demo account</label>
+        <label for="user_id">Choose an account</label>
         <select id="user_id" name="user_id" required>
             <option value="">Select an account</option>
             {% for user in users %}
@@ -20,13 +20,8 @@
     </form>
 
     <div class="callout">
-        <h2>Recommended production auth</h2>
-        <ul class="feature-list compact">
-            <li>Google Workspace OAuth for staff and students</li>
-            <li>District-approved domain restriction and consent screen</li>
-            <li>Role mapping from roster or admin assignment</li>
-            <li>Managed session storage, audit logs, and privacy disclosures</li>
-        </ul>
+        <h2>Quick access</h2>
+        <p class="muted">Teacher accounts can create modules, manage due dates, and grade submissions. Student accounts can complete quizzes, launch project tools, and submit work.</p>
     </div>
 </section>
 {% endblock %}

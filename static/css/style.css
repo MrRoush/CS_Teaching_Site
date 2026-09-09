@@ -367,6 +367,28 @@ legend {
     border-bottom: none;
 }
 
+.gradebook-scroll {
+    overflow-x: auto;
+}
+
+.gradebook-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 760px;
+}
+
+.gradebook-table th,
+.gradebook-table td {
+    border: 1px solid var(--border);
+    padding: 0.8rem;
+    vertical-align: top;
+    text-align: left;
+}
+
+.gradebook-table th {
+    background: var(--surface-alt);
+}
+
 .embed-shell {
     overflow: hidden;
     border-radius: 16px;

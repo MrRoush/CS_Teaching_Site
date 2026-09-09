@@ -5,9 +5,9 @@
 {% block content %}
 <section class="hero-panel">
     <div>
-        <p class="eyebrow">Educational management prototype</p>
-        <h1>Reframed for privacy-aware computer science courses and Godot-based game creation.</h1>
-        <p class="lead">This reset provides a deployable Flask scaffold with demo sign-in, teacher course assembly, student submissions, grading workflows, and a clear path to Google Workspace authentication.</p>
+        <p class="eyebrow">Computer science course platform</p>
+        <h1>Build units, manage projects, and track student growth in one classroom site.</h1>
+        <p class="lead">Teachers can organize module-based coursework, launch Godot game activities, run quizzes, and review student work with a shared gradebook workflow.</p>
         <div class="hero-actions">
             <a href="{{ url_for('sign_in') }}" class="btn btn-primary">Open Demo Sign-In</a>
             {% if current_user %}
@@ -16,7 +16,7 @@
         </div>
     </div>
     <div class="summary-card">
-        <h2>Current scaffold</h2>
+        <h2>Site snapshot</h2>
         <ul class="feature-list compact">
             <li>{{ metrics.course_count }} course shell{% if metrics.course_count != 1 %}s{% endif %}</li>
             <li>{{ metrics.module_count }} reusable module template{% if metrics.module_count != 1 %}s{% endif %}</li>
@@ -28,23 +28,23 @@
 
 <section class="grid-two">
     <article class="panel">
-        <h2>Feasibility snapshot</h2>
+        <h2>Core capabilities</h2>
         <ul class="feature-list">
-            <li><strong>Authentication:</strong> Google Workspace sign-in is feasible through OAuth 2.0/OpenID Connect; this prototype keeps a demo session flow so deployment can start before district credentials are issued.</li>
-            <li><strong>Teacher authoring:</strong> Reusable module templates let instructors assemble and trim course sequences without editing code.</li>
-            <li><strong>Assessment:</strong> Each module supports lesson media, a quiz prompt, a project brief, submission tracking, and teacher grading notes.</li>
-            <li><strong>Godot integration:</strong> The online Godot 4.7.2 editor can be linked immediately and conditionally embedded for supported browsers.</li>
-            <li><strong>Privacy:</strong> Student data collection stays minimal in the scaffold and should move to managed auth, role checks, audit logs, and a production database before classroom rollout.</li>
+            <li><strong>Teacher authoring:</strong> Reusable module templates support objectives, activity selection, quiz setup, and project prompts.</li>
+            <li><strong>Assessment:</strong> Teachers can review submissions, apply point or rubric-style notes, and manage quiz feedback.</li>
+            <li><strong>Gradebook:</strong> Course-level gradebook views combine project and quiz results by student and assignment.</li>
+            <li><strong>Godot integration:</strong> Modules can launch the online Godot editor and link to starter project templates.</li>
+            <li><strong>Scheduling:</strong> Assignment due dates can be attached to modules and surfaced across teacher/student views.</li>
         </ul>
     </article>
     <article class="panel">
-        <h2>Clarifying questions to answer next</h2>
+        <h2>Classroom workflow highlights</h2>
         <ol class="question-list">
-            <li>What Google Workspace domain and admin approvals will be available for OAuth setup?</li>
-            <li>Should modules support only links and text submissions, or should file uploads and rubric attachments be included in phase one?</li>
-            <li>How should students enroll: teacher roster import, invite code, LMS sync, or manual assignment?</li>
-            <li>Do quizzes need auto-grading now, or is teacher-reviewed short answer acceptable for the first release?</li>
-            <li>Should the Godot editor save directly to cloud storage, GitHub, Google Drive, or a site-managed project store?</li>
+            <li>Create units/modules with lesson media, slide embeds, quiz configuration, and project expectations.</li>
+            <li>Organize course pacing with assignment due dates and module sequencing.</li>
+            <li>Have students submit playable project links and progress notes for each module.</li>
+            <li>Review quiz attempts with comments, reassessment options, and updated scores.</li>
+            <li>Use the course gradebook to monitor performance trends across all enrolled students.</li>
         </ol>
     </article>
 </section>

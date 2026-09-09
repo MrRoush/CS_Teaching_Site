@@ -48,6 +48,10 @@
                         </span>
                     </div>
                     <p>{{ module.summary }}</p>
+                    <p class="muted"><strong>Objectives:</strong> {{ module.objectives }}</p>
+                    {% if module.due_date %}
+                        <p class="muted"><strong>Due:</strong> {{ module.due_date }}</p>
+                    {% endif %}
                     <div class="module-actions">
                         <a href="{{ url_for('module_detail', course_id=module.course_id, course_module_id=module.course_module_id) }}" class="btn btn-secondary">Open module</a>
                         {% if module.godot_enabled %}

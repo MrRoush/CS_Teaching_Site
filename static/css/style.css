@@ -413,6 +413,34 @@ legend {
     font-weight: 700;
 }
 
+.lesson-outline,
+.lesson-piece-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.lesson-outline-card,
+.outline-item {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem;
+    background: #fff;
+}
+
+.lesson-outline-card {
+    border-left: 4px solid var(--primary);
+}
+
+.outline-item {
+    background: var(--surface-alt);
+}
+
+.builder-form {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
 .narrow-panel {
     max-width: 720px;
     margin: 0 auto;

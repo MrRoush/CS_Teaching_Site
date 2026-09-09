@@ -30,7 +30,7 @@
                     {% for template in templates %}
                         <label>
                             <input type="checkbox" name="template_ids" value="{{ template.id }}">
-                            <span><strong>{{ template.title }}</strong> — {{ template.summary }}</span>
+                            <span><strong>{{ template.title }}</strong> — {{ template.summary }}<br><span class="muted">{{ template.lesson_count }} lesson{% if template.lesson_count != 1 %}s{% endif %} · {{ template.item_count }} piece{% if template.item_count != 1 %}s{% endif %}{% if template.points_possible %} · {{ template.points_possible }} pts{% endif %}</span></span>
                         </label>
                     {% endfor %}
                 </div>
@@ -41,81 +41,39 @@
     </article>
 
     <article class="panel">
-        <h2>Create a reusable module</h2>
+        <h2>Create a reusable unit</h2>
         <form method="post" action="{{ url_for('create_module_template') }}" class="stack-form">
             <label for="module-title">Module title</label>
-            <input id="module-title" name="title" type="text" placeholder="Platformer Physics Lab" required>
+            <input id="module-title" name="title" type="text" placeholder="Unit 1: Godot Fundamentals" required>
 
             <label for="module-summary">Summary</label>
-            <textarea id="module-summary" name="summary" rows="3" placeholder="What the module covers and why it matters" required></textarea>
+            <textarea id="module-summary" name="summary" rows="3" placeholder="What the unit covers and why it matters" required></textarea>
 
             <label for="module-objectives">Learning objectives</label>
-            <textarea id="module-objectives" name="objectives" rows="3" placeholder="List measurable objectives students should hit in this module" required></textarea>
+            <textarea id="module-objectives" name="objectives" rows="3" placeholder="List measurable objectives students should hit in this unit" required></textarea>
+            <p class="muted">After saving, build the unit lesson-by-lesson and add each activity piece one at a time.</p>
 
-            <label for="lesson-type">Lesson type</label>
-            <select id="lesson-type" name="lesson_type">
-                <option value="mixed">Mixed</option>
-                <option value="video">Video</option>
-                <option value="slides">Slides</option>
-                <option value="project">Project</option>
-            </select>
-
-            <fieldset>
-                <legend>Included activities</legend>
-                <div class="checkbox-list">
-                    <label>
-                        <input type="checkbox" name="activity_video" checked>
-                        <span>Video/resource lesson</span>
-                    </label>
-                    <label>
-                        <input type="checkbox" name="activity_slides" checked>
-                        <span>Embedded or linked slides</span>
-                    </label>
-                    <label>
-                        <input type="checkbox" name="activity_quiz" checked>
-                        <span>Quiz</span>
-                    </label>
-                    <label>
-                        <input type="checkbox" name="activity_project" checked>
-                        <span>Project build + submission</span>
-                    </label>
-                </div>
-            </fieldset>
-
-            <label for="content-url">Video or resource URL</label>
-            <input id="content-url" name="content_url" type="url" placeholder="https://...">
-
-            <label for="slide-url">Slide deck URL</label>
-            <input id="slide-url" name="slide_url" type="url" placeholder="https://...">
-
-            <label for="godot-template-url">Godot starter template URL</label>
-            <input id="godot-template-url" name="godot_template_url" type="url" placeholder="https://github.com/.../template-project">
-
-            <label for="quiz-prompt">Quiz prompt</label>
-            <textarea id="quiz-prompt" name="quiz_prompt" rows="2" placeholder="Quick check for understanding"></textarea>
-
-            <label for="quiz-questions">Quiz questions</label>
-            <textarea id="quiz-questions" name="quiz_questions" rows="5" placeholder="mcq|Question text|Option A|Option B|Option C|Option D|A&#10;short|Question text"></textarea>
-            <p class="muted">Use one line per question. MCQ format: mcq|question|A|B|C|D|CorrectLetter. Short answer format: short|question.</p>
-
-            <label for="quiz-max-attempts">Quiz attempts</label>
-            <input id="quiz-max-attempts" name="quiz_max_attempts" type="number" min="1" max="10" value="1">
-
-            <label class="checkbox-inline">
-                <input type="checkbox" name="quiz_allow_reassessment">
-                <span>Allow one reassessment attempt after max attempts</span>
-            </label>
-
-            <label for="project-brief">Project brief</label>
-            <textarea id="project-brief" name="project_brief" rows="3" placeholder="What students should build and submit"></textarea>
-
-            <label class="checkbox-inline">
-                <input type="checkbox" name="godot_enabled">
-                <span>Include Godot editor launch support</span>
-            </label>
-
-            <button type="submit" class="btn btn-secondary">Save module template</button>
+            <button type="submit" class="btn btn-secondary">Create unit builder</button>
         </form>
+
+        <div class="resource-stack">
+            {% for template in templates %}
+                <article class="module-card">
+                    <div class="module-card-top">
+                        <div>
+                            <h3>{{ template.title }}</h3>
+                            <p class="muted">{{ template.lesson_count }} lesson{% if template.lesson_count != 1 %}s{% endif %} · {{ template.item_count }} activity piece{% if template.item_count != 1 %}s{% endif %}{% if template.points_possible %} · {{ template.points_possible }} pts{% endif %}</p>
+                        </div>
+                        {% if template.created_by == current_user.id %}
+                            <a href="{{ url_for('module_template_builder', template_id=template.id) }}" class="btn btn-secondary">Edit unit</a>
+                        {% endif %}
+                    </div>
+                    <p>{{ template.summary }}</p>
+                </article>
+            {% else %}
+                <p>No unit templates yet.</p>
+            {% endfor %}
+        </div>
     </article>
 </section>
 
